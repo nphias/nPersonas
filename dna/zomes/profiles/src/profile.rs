@@ -3,13 +3,14 @@ use hc_utils::wrappers::*;
 //use hdk3::prelude::link::Link;
 use hdk3::prelude::*;
 use std::convert::{TryFrom, TryInto};
+use std::str::FromStr;
 
 #[hdk_entry(id = "profile", visibility = "private")]
 #[derive(Clone)]
 pub struct Profile {
     name: String,
     application_name: String,
-    app_hash: WrappedDnaHash,
+    app_hash: String,
     expiry: u32,
     enabled: bool,
     fields: Vec<ProfileField>
@@ -30,8 +31,9 @@ pub struct ProfileField {
 #[derive(Clone, Serialize, Deserialize, SerializedBytes)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileInit {
+    //uuid: string
     application_name: String,
-    app_hash: WrappedDnaHash,
+    app_hash: String,
     fields: Vec<ProfileFieldIn>
 }
 
@@ -42,7 +44,7 @@ pub struct ProfileFieldIn {
     pub display_name: String,
     pub required: bool,
     pub description: String,
-    pub access: AccessType,
+    pub access: String,
     pub schema: String,
 }
 
@@ -52,7 +54,7 @@ pub struct ProfileOut {
     id: EntryHash,
     name: String,
     application_name: String,
-    app_hash: WrappedDnaHash,
+    app_hash: String,
     expiry: u32,
     enabled: bool,
     fields: Vec<ProfileFieldOut>
@@ -75,6 +77,20 @@ pub enum AccessType {
     PUBLIC,
     PERSONAL,
     PRIVATE
+}
+
+impl FromStr for AccessType {
+
+    type Err = ();
+
+    fn from_str(input: &str) -> Result<AccessType, Self::Err> {
+        match input {
+            "PUBLIC"  => Ok(AccessType::PUBLIC),
+            "PERSONAL"  => Ok(AccessType::PERSONAL),
+            "PRIVATE"  => Ok(AccessType::PRIVATE),
+            _      => Err(()),
+        }
+    }
 }
 
 //#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
@@ -107,7 +123,8 @@ pub fn create_profile(profileInit: ProfileInit) -> ExternResult<ProfileOut> {
     };
     create_entry(&profile.clone())?;
     let profile_hash = hash_entry(&profile.clone())?;
-    let app_key = profile.app_hash.0.clone().to_string();//.0.clone();
+    //let app_key = profile.app_hash.0.clone().to_string();//.0.clone();
+    let app_key = profile.app_hash.clone();
     let path = Path::from(format!("all_applications.{}",app_key.as_str()));
     path.ensure()?;
 
@@ -183,7 +200,7 @@ fn mapProfileInitFields(mapped_fields: Vec<PersonaField>, field_data: Vec<Profil
             display_name: fd.display_name.clone(),
             required: fd.required.clone(),
             description: fd.description.clone(),
-            access: fd.access.clone(),
+            access: AccessType::from_str(&fd.access).unwrap(),
             schema: fd.schema.clone(),
             mapping: get_mapping_data_in(fd.name.clone(),mapped_fields.clone())
         }
