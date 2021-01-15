@@ -5,75 +5,6 @@ use hdk3::prelude::*;
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 
-#[hdk_entry(id = "profile", visibility = "private")]
-#[derive(Clone)]
-pub struct Profile {
-    name: String,
-    application_name: String,
-    app_hash: String,
-    expiry: u32,
-    enabled: bool,
-    fields: Vec<ProfileField>
-}
-
-#[hdk_entry(id = "profilefield", visibility = "private")]
-#[derive(Clone)]
-pub struct ProfileField {
-    name: String,
-    display_name: String,
-    required: bool,
-    description: String,
-    access: AccessType,
-    schema: String,
-    mapping:  Option<String> //Option<AnyDhtHash>
-}
-
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfileMeta {
-    uuid: String,
-    application_name: String,
-    app_hash: String,
-    app_version: u32,
-    fields: Vec<String>
-}
-
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfileFieldIn {
-    pub name: String,
-    pub display_name: String,
-    pub required: bool,
-    pub description: String,
-    pub access: String,
-    pub schema: String,
-}
-
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfileOut {
-    id: EntryHash,
-    name: String,
-    uuid: String,
-    application_name: String,
-    app_hash: String,
-    app_version: u32,
-    expiry: u32,
-    enabled: bool,
-    fields: Vec<ProfileFieldOut>
-}
-
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-#[serde(rename_all = "camelCase")]
-pub struct ProfileFieldOut {
-    pub name: String,
-    pub display_name: String,
-    pub required: bool,
-    pub description: String,
-    pub access: AccessType,
-    pub schema: String,
-    pub value: Option<String>
-}
 
 #[derive(Clone, Serialize, Deserialize, SerializedBytes)]
 pub enum AccessType {
@@ -96,6 +27,90 @@ impl FromStr for AccessType {
     }
 }
 
+#[hdk_entry(id = "profile", visibility = "private")]
+#[derive(Clone)]
+pub struct Profile {
+    uuid: String,
+    app_name: String,
+    app_hash: String,
+    app_version: String,
+    expiry: u32,
+    enabled: bool,
+    fields: Vec<ProfileField>
+}
+
+#[hdk_entry(id = "profilefield", visibility = "private")]
+#[derive(Clone)]
+pub struct ProfileField {
+    name: String,
+    display_name: String,
+    required: bool,
+    description: String,
+    access: AccessType,
+    schema: String,
+    mapping:  Option<String> //Option<AnyDhtHash>
+}
+
+// DTO - Data Transfer Objects Input
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[serde(rename_all = "camelCase")]
+pub struct AppInfo {
+    uuid: String,
+    app_name: String,
+    app_hash: String,
+    app_version: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileSpec {
+    uuid: String,
+    app_name: String,
+    app_hash: String,
+    app_version: String,
+    expiry: u32,
+    fields: Vec<ProfileFieldSpec>
+}
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileFieldSpec {
+    pub name: String,
+    pub display_name: String,
+    pub required: bool,
+    pub description: String,
+    pub access: String,
+    pub schema: String,
+}
+
+// DTO - Data Transfer Objects Output
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileData {
+    id: EntryHash,
+    uuid: String,
+    app_name: String,
+    app_hash: String,
+    app_version: String,
+    expiry: u32,
+    enabled: bool,
+    fields: Vec<ProfileFieldData>
+}
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileFieldData {
+    pub name: String,
+    pub display_name: String,
+    pub required: bool,
+    pub description: String,
+    pub access: AccessType,
+    pub schema: String,
+    pub value: Option<String>
+}
+
 //#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
 //pub struct FieldMapping {
 //    persona: AnyDhtHash,
@@ -111,53 +126,46 @@ pub struct PersonaField {
     value: Option<String>
 }
 
-pub fn create_profile(profileInit: ProfileMeta) -> ExternResult<ProfileOut> {
+
+pub fn create_profile(spec: ProfileSpec) -> ExternResult<EntryHash> {
     //let search_fields = get_name_fields(&profileInit.fields.clone());
     //let mapped_fields = get_persona_fields(search_fields);   //here we call personas and get back vec<PersonaField>
-    let pf = PersonaField {persona_id: None, field_id: None, name:"dddd".into(), value: Some(String::from("dfdf"))};
+    let pf = PersonaField {persona_id: None, field_id: None, name:"name".into(), value: Some(String::from("Thomas"))};
     let mapped_fields = vec![pf];
     let profile = Profile {
-        name: "".into(),
-        application_name: profileInit.application_name,
-        app_hash: profileInit.app_hash,
+        uuid: spec.uuid,
+        app_name: spec.app_name,
+        app_hash: spec.app_hash,
+        app_version: spec.app_version,
         expiry: 0,
         enabled: true,
-        fields: mapProfileInitFields(mapped_fields.clone(), profileInit.fields)
+        fields: map_profile_spec_fields(mapped_fields.clone(), spec.fields)
     };
     create_entry(&profile.clone())?;
     let profile_hash = hash_entry(&profile.clone())?;
     //let app_key = profile.app_hash.0.clone().to_string();//.0.clone();
-    let app_key = profile.app_hash.clone();
+    let app_key = profile.uuid.clone();
     let path = Path::from(format!("all_applications.{}",app_key.as_str()));
     path.ensure()?;
 
     create_link(
         path.hash()?,
         profile_hash.clone(),
-        link_tag(profile.application_name.as_str().clone())?
+        link_tag(profile.app_hash.as_str().clone())?
     )?;
-    let profile_data = ProfileOut {
-        id: profile_hash,
-        name: profile.name,
-        application_name: profile.application_name,
-        app_hash: profile.app_hash,
-        expiry: profile.expiry,
-        enabled: profile.enabled,
-        fields: mapToOutputFields(mapped_fields, profile.fields)
-    };
-    Ok(profile_data)
+    Ok(profile_hash)
 }
 
-//do we want multiple profiles for the same app?
-pub fn get_profile(profile_meta: ProfileMeta) -> ExternResult<Option<ProfileOut>> {
+//one profile per persona, per app version
+pub fn get_profile(app_info: AppInfo) -> ExternResult<Option<ProfileData>> {
     //check if profile exists.
     let mapped_fields = Vec::new();
 
     //let app_key = wrapped_app_dna.0.clone().to_string();//.0.clone();
-    let path = Path::from(format!("all_applications.{}.{}",profile_meta.uuid.as_str(),profile_meta.app_hash.as_str()));
+    let path = Path::from(format!("all_applications.{}",app_info.uuid.as_str()));
     path.ensure()?;
     //let app_address: AnyDhtHash = app_key.into_hash(); 
-    let links = get_links(path.hash()?,Some(link_tag(&app_key)?))?;//, tag_to_app_key(app.clone())?)?;
+    let links = get_links(path.hash()?,Some(link_tag(&app_info.app_hash.as_str())?))?;//, tag_to_app_key(app.clone())?)?;
     let inner_links = links.into_inner();
 
     if inner_links.len() == 0 {
@@ -168,24 +176,26 @@ pub fn get_profile(profile_meta: ProfileMeta) -> ExternResult<Option<ProfileOut>
     let profile: Profile = utils::try_get_and_convert(link.target)?;
     let profile_hash = hash_entry(&profile.clone())?;
 
-    let profile = ProfileOut {
+    let profile = ProfileData {
         id: profile_hash,
-        name: profile.name,
-        application_name: profile.application_name,
+        uuid: profile.uuid,
+        app_name: profile.app_name,
         app_hash: profile.app_hash,
+        app_version: profile.app_version,
         expiry: profile.expiry,
         enabled: profile.enabled,
-        fields: mapToOutputFields(mapped_fields, profile.fields)
+        fields: map_to_output_fields(mapped_fields, profile.fields)
     };
     Ok(Some(profile))
 
 }
 
 
+
 //Helpers
 
 //DTO preparation
-fn get_name_fields(fields: &Vec<ProfileFieldIn>) -> Vec<PersonaField> {
+fn get_name_fields(fields: &Vec<ProfileFieldSpec>) -> Vec<PersonaField> {
     return fields.iter().map(|f| {
         return PersonaField {
             persona_id: None,
@@ -196,7 +206,7 @@ fn get_name_fields(fields: &Vec<ProfileFieldIn>) -> Vec<PersonaField> {
     }).collect();  
 }
 
-fn mapProfileInitFields(mapped_fields: Vec<PersonaField>, field_data: Vec<ProfileFieldIn> ) -> Vec<ProfileField> {
+fn map_profile_spec_fields(mapped_fields: Vec<PersonaField>, field_data: Vec<ProfileFieldSpec> ) -> Vec<ProfileField> {
     return field_data.iter().map(|fd| {
         return ProfileField {
             name: fd.name.clone(),
@@ -219,9 +229,9 @@ fn get_mapping_data_in(name:String, mapped_fields:Vec<PersonaField>) -> Option<S
     }).collect();
 }
 
-fn mapToOutputFields(mapped_fields: Vec<PersonaField>, field_data: Vec<ProfileField>) -> Vec<ProfileFieldOut> {
+fn map_to_output_fields(mapped_fields: Vec<PersonaField>, field_data: Vec<ProfileField>) -> Vec<ProfileFieldData> {
     return field_data.iter().map(|fd| {
-        return ProfileFieldOut {
+        return ProfileFieldData {
             name: fd.name.clone(),
             display_name: fd.display_name.clone(),
             required: fd.required.clone(),

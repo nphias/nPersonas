@@ -35,47 +35,58 @@ const sleep = (ms) =>
 
 const orchestrator = new Orchestrator();
 
-orchestrator.registerScenario("create a profile and get it", async (s, t) => {
-  const [alice, bob] = await s.players([conductorConfig, conductorConfig]);
+orchestrator.registerScenario("try to retieve a profile that doesnt exist, get fields needed, create one and try again", async (s, t) => {
+  const [alice] = await s.players([conductorConfig, conductorConfig]);
 
   // install your happs into the coductors and destructuring the returned happ data using the same
   // array structure as you created in your installation array.
   const [[alice_profiles]] = await alice.installAgentsHapps(installation);
-  const [[bob_profiles]] = await bob.installAgentsHapps(installation);
 
   const app_UUID = uuidv4()
-  const profileMeta = {
-    uuid: app_UUID,
-    applicationName: "calendar",
-    appHash: "QmXpCHbuYVtQqpTaevX5y4Ed8Nnr7i4q6RFpMzNfs3W7ms",
-    appVersion: 3.1,
-    fields: ["name", "email"],
+
+  const appInfo = {
+    uuid: app_UUID, //required
+    appName: "calendar",
+    appHash: "QmXpCHbuYVtQqpTaevX5y4Ed8Nnr7i4q6RFpMzNfs3W7ms", //required
+    appVersion: "3.1"
   }
 
-  let profileOut1 = await alice_profiles.cells[0].call(
+  //look for profile for app
+ try {
+  let profile = await alice_profiles.cells[0].call(
     "profiles",
     "get_profile",
-    profileMeta
+    appInfo
   );
-  console.log(profileOut1)
-  t.notOk(profileOut1);
-
-  let profileOut2 = await alice_profiles.cells[0].call(
-    "profiles",
-    "init_profile",
-    profileMeta
-  );
-  console.log(profileOut2)
-  t.notOk(profileOut2);
-
+  t.notOk(false);
+  } catch (e){
+    console.log(e)
+  }
   await sleep(500);
 
+  /*
+  // get fields -  returns type vector PersonaField
+  let personaFields = await alice_profiles.cells[0].call(
+    "personas",
+    "get_fields",
+    {
+    fields: ["name", "email"]
+    }
+  )
+
+  await sleep(500);
+*/
+
+  //save complete profile - uses profileSpec, returns a hash
   let profileHash = await alice_profiles.cells[0].call(
     "profiles",
     "create_profile",
     {
-      applicationName: "calendar",
-      appHash: "QmXpCHbuYVtQqpTaevX5y4Ed8Nnr7i4q6RFpMzNfs3W7ms",
+      uuid: app_UUID, //required
+      appName: "calendar",
+      appHash: "QmXpCHbuYVtQqpTaevX5y4Ed8Nnr7i4q6RFpMzNfs3W7ms", //required
+      appVersion: "3.1",
+      expiry: 23,
       fields: [{
         name: "name",
         displayName: "Name",
@@ -83,15 +94,27 @@ orchestrator.registerScenario("create a profile and get it", async (s, t) => {
         description: "calendar profile name",
         access: "PERSONAL",
         schema: "",
-        value: "Thomas"
       }],
     }
   );
-  console.log(profileHash)
+  console.log("result from creatiion hash: ",profileHash)
   t.ok(profileHash);
 
   await sleep(500);
 
+
+  try {
+    let profile = await alice_profiles.cells[0].call(
+      "profiles",
+      "get_profile",
+      appInfo
+    );
+    console.log(profile)
+    t.ok(profile);
+    } catch (e){
+      console.log(e)
+    }
+    await sleep(500);
 
   //get profile for app
 
