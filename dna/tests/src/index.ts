@@ -4,6 +4,7 @@ import {
   InstallAgentsHapps,
   TransportConfigType,
 } from "@holochain/tryorama";
+import { v4 as uuidv4 } from "uuid";
 import path from "path";
 
 const network = {
@@ -42,12 +43,32 @@ orchestrator.registerScenario("create a profile and get it", async (s, t) => {
   const [[alice_profiles]] = await alice.installAgentsHapps(installation);
   const [[bob_profiles]] = await bob.installAgentsHapps(installation);
 
-  /*let myProfile = await alice_profiles.cells[0].call(
+  const app_UUID = uuidv4()
+  const profileMeta = {
+    uuid: app_UUID,
+    applicationName: "calendar",
+    appHash: "QmXpCHbuYVtQqpTaevX5y4Ed8Nnr7i4q6RFpMzNfs3W7ms",
+    appVersion: 3.1,
+    fields: ["name", "email"],
+  }
+
+  let profileOut1 = await alice_profiles.cells[0].call(
     "profiles",
-    "create_profile",
-    null
+    "get_profile",
+    profileMeta
   );
-  t.notOk(myProfile);*/
+  console.log(profileOut1)
+  t.notOk(profileOut1);
+
+  let profileOut2 = await alice_profiles.cells[0].call(
+    "profiles",
+    "init_profile",
+    profileMeta
+  );
+  console.log(profileOut2)
+  t.notOk(profileOut2);
+
+  await sleep(500);
 
   let profileHash = await alice_profiles.cells[0].call(
     "profiles",
@@ -56,12 +77,13 @@ orchestrator.registerScenario("create a profile and get it", async (s, t) => {
       applicationName: "calendar",
       appHash: "QmXpCHbuYVtQqpTaevX5y4Ed8Nnr7i4q6RFpMzNfs3W7ms",
       fields: [{
-        name: "alice",
-        displayName: "alice",
+        name: "name",
+        displayName: "Name",
         required: true,
         description: "calendar profile name",
         access: "PERSONAL",
-        schema: ""
+        schema: "",
+        value: "Thomas"
       }],
     }
   );
@@ -69,6 +91,9 @@ orchestrator.registerScenario("create a profile and get it", async (s, t) => {
   t.ok(profileHash);
 
   await sleep(500);
+
+
+  //get profile for app
 
   /*try {
     profileHash = await bob_profiles.cells[0].call(

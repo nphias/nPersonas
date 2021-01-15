@@ -30,11 +30,12 @@ pub struct ProfileField {
 
 #[derive(Clone, Serialize, Deserialize, SerializedBytes)]
 #[serde(rename_all = "camelCase")]
-pub struct ProfileInit {
-    //uuid: string
+pub struct ProfileMeta {
+    uuid: String,
     application_name: String,
     app_hash: String,
-    fields: Vec<ProfileFieldIn>
+    app_version: u32,
+    fields: Vec<String>
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedBytes)]
@@ -53,8 +54,10 @@ pub struct ProfileFieldIn {
 pub struct ProfileOut {
     id: EntryHash,
     name: String,
+    uuid: String,
     application_name: String,
     app_hash: String,
+    app_version: u32,
     expiry: u32,
     enabled: bool,
     fields: Vec<ProfileFieldOut>
@@ -108,7 +111,7 @@ pub struct PersonaField {
     value: Option<String>
 }
 
-pub fn create_profile(profileInit: ProfileInit) -> ExternResult<ProfileOut> {
+pub fn create_profile(profileInit: ProfileMeta) -> ExternResult<ProfileOut> {
     //let search_fields = get_name_fields(&profileInit.fields.clone());
     //let mapped_fields = get_persona_fields(search_fields);   //here we call personas and get back vec<PersonaField>
     let pf = PersonaField {persona_id: None, field_id: None, name:"dddd".into(), value: Some(String::from("dfdf"))};
@@ -146,12 +149,12 @@ pub fn create_profile(profileInit: ProfileInit) -> ExternResult<ProfileOut> {
 }
 
 //do we want multiple profiles for the same app?
-pub fn get_profile(wrapped_app_dna:WrappedDnaHash) -> ExternResult<Option<ProfileOut>> {
+pub fn get_profile(profile_meta: ProfileMeta) -> ExternResult<Option<ProfileOut>> {
     //check if profile exists.
     let mapped_fields = Vec::new();
 
-    let app_key = wrapped_app_dna.0.clone().to_string();//.0.clone();
-    let path = Path::from(format!("all_applications.{}",app_key.as_str()));
+    //let app_key = wrapped_app_dna.0.clone().to_string();//.0.clone();
+    let path = Path::from(format!("all_applications.{}.{}",profile_meta.uuid.as_str(),profile_meta.app_hash.as_str()));
     path.ensure()?;
     //let app_address: AnyDhtHash = app_key.into_hash(); 
     let links = get_links(path.hash()?,Some(link_tag(&app_key)?))?;//, tag_to_app_key(app.clone())?)?;

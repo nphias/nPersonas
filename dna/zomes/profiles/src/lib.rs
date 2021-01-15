@@ -7,7 +7,7 @@ use hdk3::prelude::*;
 mod profile;
 mod utils;
 
-use profile::{ProfileInit, ProfileOut}; //Profile, ProfileField,
+use profile::{ProfileMeta, ProfileOut}; //Profile, ProfileField,
 
 pub fn error<T>(reason: &str) -> ExternResult<T> {
     Err(HdkError::Wasm(WasmError::Zome(String::from(reason))))
@@ -21,16 +21,17 @@ pub fn who_am_i(_: ()) -> ExternResult<WrappedAgentPubKey> {
     let agent_info = agent_info()?;
     Ok(WrappedAgentPubKey(agent_info.agent_initial_pubkey))    
 }
+
 #[derive(Clone, Serialize, Deserialize, SerializedBytes)]
 pub struct GetProfileOutput(Option<ProfileOut>);
 #[hdk_extern]
-pub fn get_profile(app: WrappedDnaHash) -> ExternResult<GetProfileOutput> {
-    let profile_output = profile::get_profile(app)?;
+pub fn get_profile(meta: ProfileMeta) -> ExternResult<GetProfileOutput> {
+    let profile_output = profile::get_profile(meta)?;
     Ok(GetProfileOutput(profile_output))
 }
 
 #[hdk_extern]
-pub fn create_profile(profile: ProfileInit) -> ExternResult<ProfileOut> {
+pub fn create_profile(profile: ProfileMeta) -> ExternResult<ProfileOut> {
     profile::create_profile(profile)
 }
 

@@ -88,6 +88,12 @@ pub fn get_persona_profile(app_hash:WrappedDnaHash) -> ExternResult<Option<Agent
     Ok(agent_persona_profile)
 }
 
+#[hdk_extern]
+pub fn create_persona(_: ()) -> ExternResult<AgentPersona> {
+    let agent_persona = persona::get_persona()?;
+    Ok(agent_persona)
+}
+
 /** 
 
 #[hdk_extern]

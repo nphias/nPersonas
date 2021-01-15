@@ -15,6 +15,7 @@
     "lodash": "^4.17.19",
     "tape": "^5.0.1",
     "ts-node": "^8.10.2",
-    "typescript": "^3.9.6"
+    "typescript": "^3.9.6",
+    "uuidv4": "^6.2.3"
   }
 }
