@@ -40,7 +40,12 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
 
   // install your happs into the coductors and destructuring the returned happ data using the same
   // array structure as you created in your installation array.
-  const [[alice_profiles]] = await alice.installAgentsHapps(installation);
+  const [[alice_test]] = await alice.installAgentsHapps(installation);
+  console.log(alice_test)
+  const alice_profiles = await alice_test.cells
+  console.log(alice_profiles)
+  //console.log(alice_profiles[0])
+
 
   const app_UUID = uuidv4()
 
@@ -50,10 +55,10 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
     appHash: "QmXpCHbuYVtQqpTaevX5y4Ed8Nnr7i4q6RFpMzNfs3W7ms", //required
     appVersion: "3.1"
   }
-
-  //look for profile for app
+  
+ console.log("TEST1: get profile with app_info:",appInfo)
  try {
-  let profile = await alice_profiles.cells[0].call(
+  let profile = await alice_profiles[0].call(
     "profiles",
     "get_profile",
     appInfo
@@ -62,23 +67,42 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
   } catch (e){
     console.log(e)
   }
+  console.log("\n")
   await sleep(500);
 
-  /*
+
+  console.log("TEST2: get persona data:")
+  try {
+  let persona = await alice_profiles[0].call(
+    "personas",
+    "get_persona"
+  );
+  console.log(persona)
+  t.ok(persona);
+  } catch (e){
+    console.log(e)
+  }
+  console.log("\n")
+  await sleep(500);
+  
+
   // get fields -  returns type vector PersonaField
-  let personaFields = await alice_profiles.cells[0].call(
+  console.log("TEST3: get persona data with specified fields:")
+  let personaFields = await alice_profiles[0].call(
     "personas",
     "get_fields",
     {
     fields: ["name", "email"]
     }
   )
-
+  console.log(personaFields)
+  t.ok(personaFields)
+  console.log("\n")
   await sleep(500);
-*/
 
   //save complete profile - uses profileSpec, returns a hash
-  let profileHash = await alice_profiles.cells[0].call(
+  console.log("TEST4: save profile data:")
+  let profileHash = await alice_profiles[0].call(
     "profiles",
     "create_profile",
     {
@@ -99,12 +123,12 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
   );
   console.log("result from creatiion hash: ",profileHash)
   t.ok(profileHash);
-
+  console.log("\n")
   await sleep(500);
 
-
+  console.log("TEST5: get profile data with appInfo:")
   try {
-    let profile = await alice_profiles.cells[0].call(
+    let profile = await alice_profiles[0].call(
       "profiles",
       "get_profile",
       appInfo

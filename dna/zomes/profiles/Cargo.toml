@@ -1,5 +1,5 @@
 [package]
-authors = ["guillem.cordoba@gmail.com"]
+authors = ["nphias@gmail.com"]
 edition = "2018"
 name = "profiles"
 version = "0.0.1"

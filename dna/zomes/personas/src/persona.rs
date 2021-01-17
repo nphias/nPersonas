@@ -1,6 +1,6 @@
 use crate::utils;
 use hc_utils::WrappedAgentPubKey;
-use hdk3::prelude::link::Link;
+//use hdk3::prelude::link::Link;
 use hdk3::prelude::*;
 use std::convert::{TryFrom, TryInto};
 
@@ -11,18 +11,36 @@ pub struct Persona {
     pub agent_pub_key: AgentPubKey,
 }
 
-#[hdk_entry(id = "personadata", visibility = "private")]
+/*#[hdk_entry(id = "personadata", visibility = "private")]
 #[derive(Clone)]
 pub struct PersonaData {
     persona: AnyDhtHash,
     fields: vec<PersonaField>
-}
-#[hdk_entry(id = "personafield", visibility = "private")]
+}*/
+
+#[hdk_entry(id = "personaData", visibility = "private")]
 #[derive(Clone)]
-pub struct PersonaField {
-	name: String,
+pub struct PersonaData {
+	aliases: Vec<String>,
 	data: String
 }
+
+//DTOs
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct PersonaField {
+    persona_id: WrappedAgentPubKey,
+    data_id: EntryHash,
+    key: String,
+    value: Option<String>,
+    aliases: Vec<String>
+}
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct FieldNames {
+ pub fields: Vec<String> 
+}
+
 
 #[derive(Clone, Serialize, Deserialize, SerializedBytes)]
 pub struct AgentPersona {
@@ -32,27 +50,67 @@ pub struct AgentPersona {
 
 /** functions **/
 
-//gets the default persona
-pub fn get_persona(_:()) -> ExternResult<AgentPersona> {
-    let agent_info = agent_info!()?;
-    let agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey)[0]; //wrapped_agent_pub_key.0.clone();
-    let agent_address: AnyDhtHash = agent_pub_key.clone().into();
-    let links = get_links!(agent_address.into(), link_tag("persona")?)?;
+//gets the persona info ..  first time use creates the Persona... later only that agent can use the zome
+pub fn get_persona(_:()) -> ExternResult<Option<AgentPersona>> {
+    //let links_agent = get_links(agent_info()?.agent_latest_pubkey.into(), Some(LinkTag::new("username")))?;
+    let pub_key = agent_info()?.agent_latest_pubkey.clone();
+    //let agent_address: AnyDhtHash = pub_key.into();//agent_info()?.agent_initial_pubkey.clone().into();
+
+    let path = Path::from("owner");
+    path.ensure()?;
+    //let app_address: AnyDhtHash = app_key.into_hash(); 
+    let links = get_links(path.hash()?, None)?;//, tag_to_app_key(app.clone())?)?;
     let inner_links = links.into_inner();
+
     if inner_links.len() == 0 {
         let agent_persona = create_persona();
-        return Ok(agent_persona);
-    } else {
-        let link = inner_links[0].clone();
-        let persona: Persona = utils::try_get_and_convert(link.target)?;
+        return Ok(Some(agent_persona?));
+    }
+    let link = inner_links[0].clone();
+    let persona: Persona = utils::try_get_and_convert(link.target)?;
+    if persona.agent_pub_key != pub_key {
+        return Ok(None); // should return a no permission error
     }
     let agent_persona = AgentPersona {
         name: persona.name,
-        agent_pub_key
+        agent_pub_key: WrappedAgentPubKey(pub_key)
     };
-    Ok(agent_persona)
+    Ok(Some(agent_persona))
 }
 
+//gets the default persona
+pub fn get_fields(fieldNames:FieldNames) -> ExternResult<Vec<PersonaField>> {
+
+    //first verify agent
+    let pub_key = agent_info()?.agent_latest_pubkey.clone();
+    //let agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey); //wrapped_agent_pub_key.0.clone();
+    //let agent_address: AnyDhtHash = pub_key.into();
+    let mut result:Vec<PersonaField> = Vec::new(); 
+    for name in fieldNames.fields { 
+        let path = Path::from(format!("all_data.{}",name)); 
+        path.ensure()?;
+        let links = get_links(path.hash()?, None)?;//, tag_to_app_key(app.clone())?)?;
+        let inner_links = links.into_inner();
+        if inner_links.len() == 0 {
+            return Ok(result);
+        }
+        let link = inner_links[0].clone();
+        let pd: PersonaData = utils::try_get_and_convert(link.target)?;
+        let pd_hash = hash_entry(&pd.clone())?;
+        result.push( PersonaField {
+            persona_id: WrappedAgentPubKey(pub_key.clone()),
+            data_id: pd_hash,
+            key: name,
+            value: Some(pd.data),
+            aliases: pd.aliases
+        })
+    }
+    Ok(result)
+
+}
+
+
+/*
 pub fn add_field(field: PersonaField) -> ExternResult<Entryhash> {
     let newfield = PersonaField { 
         name: field.name,
@@ -70,8 +128,10 @@ pub fn add_field(field: PersonaField) -> ExternResult<Entryhash> {
         persona_hash.clone(),
         link_tag("persona")?
     )?;
-}
+}*/
 
+
+/* 
 pub fn get_persona_profile(app_hash:WrappedDnaHash, agent_pub_key: WrappedAgentPubKey) -> ExternResult<Option<AgentPersonaProfile>> {
     let path = Path::from(format!("all_personas.{}",agent_pub_key)); 
     path.ensure()?;
@@ -90,7 +150,7 @@ pub fn get_persona_profile(app_hash:WrappedDnaHash, agent_pub_key: WrappedAgentP
         persona_profile
     };
     Ok(Some(agent_persona_profile))
-}
+}*/
 
 /**pub fn get_persona(_:()) -> ExternResult<AgentPersona> {
     let path = Path::from("all_personas"); //should be a declared const 
@@ -117,7 +177,7 @@ pub fn get_persona_profile(app_hash:WrappedDnaHash, agent_pub_key: WrappedAgentP
 }**/
 
 
-pub fn get_all_personas() -> ExternResult<Vec<AgentPersona>> {
+/*pub fn get_all_personas() -> ExternResult<Vec<AgentPersona>> {
     let path = Path::from("all_personas");
     path.ensure()?;
 
@@ -128,33 +188,33 @@ pub fn get_all_personas() -> ExternResult<Vec<AgentPersona>> {
         .into_iter()
         .map(|link| get_agent_profile_from_link(link))
         .collect()
-}
+}*/
 
 
 /** private helpers */
 
-fn create_persona() -> AgentPersona {
-    let agent_info = agent_info!()?;
+fn create_persona() -> ExternResult<AgentPersona> {
+    let pub_key: AgentPubKey = agent_info()?.agent_initial_pubkey.clone().into();
     let persona = Persona { 
         name: "default".into(),
-        agent_pub_key: agent_info.agent_initial_pubkey.clone()
+        agent_pub_key: pub_key
     };
-    create_entry!(persona.clone())?;
-    let persona_hash = hash_entry!(persona.clone())?;
-    let agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey.clone());
-    let agent_address: AnyDhtHash = agent_info.agent_initial_pubkey.clone().into();
-
-
-    create_link!(
-        agent_address.into(),
-        persona_hash.clone(),
-        link_tag("persona")?
+    create_entry(&persona.clone());
+    let persona_hash = hash_entry(&persona.clone());
+    let path = Path::from("owner");
+    path.ensure();
+    create_link(
+        path.hash()?,
+        persona_hash.clone()?,
+        LinkTag("persona".into())
     )?;
-
-    AgentPersona {
+    let pub_key = agent_info()?.agent_initial_pubkey.clone().into();
+    let persona = AgentPersona {
         name: "default".into(),
-        agent_pub_key
+        agent_pub_key: WrappedAgentPubKey(pub_key)
     };
+    Ok(persona)
+}
 
 /*
 
@@ -179,8 +239,7 @@ fn create_persona() -> AgentPersona {
         agent_pub_key
     };
     */
-}
-
+/*
 fn get_agent_persona_from_link(link: Link) -> ExternResult<AgentPersona> {
     let persona_hash = link.target;
 
@@ -216,6 +275,7 @@ pub fn link_tag(tag: &str) -> ExternResult<LinkTag> {
     Ok(LinkTag(sb.bytes().clone()))
 }
 
+*/
 
 
 
@@ -229,8 +289,7 @@ pub fn link_tag(tag: &str) -> ExternResult<LinkTag> {
 
 
 
-
-
+/* 
 pub fn create_profile(persona: Persona) -> ExternResult<AgentPersona> {
     let agent_info = agent_info!()?;
 
@@ -327,3 +386,4 @@ fn tag_to_pub_key(tag: LinkTag) -> ExternResult<WrappedAgentPubKey> {
 
     Ok(pub_key)
 }
+*/

@@ -356,6 +356,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7151b083b0664ed58ed669fcdd92f01c3d2fdbf10af4931a301474950b52bfa9"
 
 [[package]]
+name = "personas"
+version = "0.0.1"
+dependencies = [
+ "derive_more",
+ "flate2",
+ "hc_utils",
+ "hdk3",
+ "serde",
+]
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"

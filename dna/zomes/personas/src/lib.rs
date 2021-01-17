@@ -1,22 +1,22 @@
 extern crate hc_utils;
 
 use hc_utils::WrappedAgentPubKey;
-use hc_utils::WrappedDnaHash;
+//use hc_utils::WrappedDnaHash;
 use hdk3::prelude::*;
 
 mod persona;
-mod persona_profile;
+//mod persona_profile;
 mod utils;
 
-use persona::{AgentPersona, Persona};
-use persona_profile::{AgentPersonaProfile, PersonaProfile};
+use persona::{AgentPersona, FieldNames, PersonaField};
+//use persona_profile::{AgentPersonaProfile, PersonaProfile};
 
 
 pub fn error<T>(reason: &str) -> ExternResult<T> {
     Err(HdkError::Wasm(WasmError::Zome(String::from(reason))))
 }
 
-entry_defs![Path::entry_def(), persona::Persona::entry_def(), persona::PersonaProfile::entrydef()];
+entry_defs![Path::entry_def(), persona::Persona::entry_def()];//persona::PersonaProfile::entrydef()];
 
 
 //temp hack for bridging
@@ -24,9 +24,9 @@ entry_defs![Path::entry_def(), persona::Persona::entry_def(), persona::PersonaPr
 fn init(_: ()) -> ExternResult<InitCallbackResult> {
     // grant unrestricted access to accept_cap_claim so other agents can send us claims
     let mut functions: GrantedFunctions = HashSet::new();
-    functions.insert((zome_info!()?.zome_name, "get_all_personas".into()));
+    functions.insert((zome_info()?.zome_name, "get_all_personas".into()));
     // functions.insert((zome_info!()?.zome_name, "needs_cap_claim".into()));
-    create_cap_grant!(
+    create_cap_grant(
         CapGrantEntry {
             tag: "".into(),
             // empty access converts to unrestricted
@@ -37,20 +37,45 @@ fn init(_: ()) -> ExternResult<InitCallbackResult> {
     Ok(InitCallbackResult::Pass)
 }
 
-/** persona structs **/
+
+#[hdk_extern]
+pub fn who_am_i(_: ()) -> ExternResult<WrappedAgentPubKey> {
+    let agent_info = agent_info()?;
+    Ok(WrappedAgentPubKey(agent_info.agent_initial_pubkey))    
+}
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct GetAgentProfileOutput(Option<AgentPersona>);
+#[hdk_extern]
+pub fn get_persona(_: ()) -> ExternResult<GetAgentProfileOutput> {
+    let agent_persona = persona::get_persona(())?;
+    Ok(GetAgentProfileOutput(agent_persona))
+}
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct GetAllFieldData(Vec<PersonaField>);
+#[hdk_extern]
+pub fn get_fields(fields: FieldNames) -> ExternResult<GetAllFieldData> {
+    let result = persona::get_fields(fields)?;
+    Ok(GetAllFieldData(result))
+}
+
+
+
+/* persona structs */
 
 //#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
 //pub struct GetAgentPersonaOutput(Option<AgentPersona>);
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-pub struct GetAllPersonasOutput(Vec<AgentPersona>);
+//#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+//pub struct GetAllPersonasOutput(Vec<AgentPersona>);
 
 //#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
 //pub struct GetAgentPersonaProfileOutput(Option<AgentPersonaProfile>);
 
-/** persona functions **/
+/* persona functions */
 
-/** 
+/*
 // pub create_persona(persona:Persona)
 cap get_persona()
 cap set_persona_name(name:string)
@@ -61,21 +86,11 @@ pub get_persona_profile(app_hash:DnaHash)
 pub create_persona_profile(persona_profile:PersonaProfile)
 cap remove_persona_profile(profile_hash: hashstring)
 
-**/
+*/
 
 
-#[hdk_extern]
-pub fn who_am_i(_: ()) -> ExternResult<WrappedAgentPubKey> {
-    let agent_info = agent_info!()?;
-    Ok(WrappedAgentPubKey(agent_info.agent_initial_pubkey))    
-}
 
-#[hdk_extern]
-pub fn get_persona(_: ()) -> ExternResult<AgentPersona> {
-    let agent_persona = persona::get_persona()?;
-    Ok(agent_persona)
-}
-
+/* 
 #[hdk_extern]
 fn get_all_personas(_: ()) -> ExternResult<GetAllPersonasOutput> {
     let agent_personas = persona::get_all_personas()?;
@@ -94,7 +109,14 @@ pub fn create_persona(_: ()) -> ExternResult<AgentPersona> {
     Ok(agent_persona)
 }
 
-/** 
+#[hdk_extern]
+pub fn create_persona(_: ()) -> ExternResult<AgentPersona> {
+    let agent_persona = persona::get_persona()?;
+    Ok(agent_persona)
+}*/
+
+
+/* 
 
 #[hdk_extern]
 pub fn get_agent_profile(agent_pub_key: WrappedAgentPubKey) -> ExternResult<GetAgentProfileOutput> {
@@ -111,6 +133,6 @@ pub fn get_all_profiles(_: ()) -> ExternResult<GetAllProfilesOutput> {
 
     Ok(GetAllProfilesOutput(agent_profiles))
 }
-**/
+*/
 
 
