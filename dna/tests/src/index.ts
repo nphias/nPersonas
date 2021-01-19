@@ -6,6 +6,7 @@ import {
 } from "@holochain/tryorama";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
+import { exit } from "process";
 
 const network = {
   transport_pool: [
@@ -72,7 +73,6 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
   } catch (e){
     console.log(e)
   }
-  await sleep(500);
  
 
   console.log("TEST2: get persona data (called for each persona to present persona-chooser in profiles UI):")
@@ -87,7 +87,6 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
   } catch (e){
     console.log(e)
   }
-  await sleep(500);
   
 
   // get fields -  returns type vector PersonaField - could go via profiles
@@ -101,13 +100,11 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
       }
     )
     console.log(non_existing_Fields)
-    t.ok(non_existing_Fields == [])
+    t.equal(non_existing_Fields.length,0)
     console.log("Redirecting to Personas UI to enter new field (that was missing)\n")
   } catch (e){
     console.log(e)
   }
-  await sleep(500);
-
 
 //returns personaField
   console.log("TEST4: set persona data with missing fields:")
@@ -124,13 +121,13 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
     console.log("redirecting back to Profiles UI\n")
   } catch (e){
     console.log(e)
+    exit()
   }
   await sleep(500);
 
 
-  //repeat test 3 with data returned
   // get fields -  - should go via profiles
-  console.log("TEST5: pre-populate form with existing fields and higlight missing:")
+  console.log("TEST5: confirm all fields are stored:")
   try {
     let existing_Fields = await alice_profiles[0].call(
       "personas",
@@ -140,7 +137,7 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
       }
     )
     console.log(existing_Fields)
-    t.ok(existing_Fields)
+    t.ok(existing_Fields.length > 0)
     console.log("Redirecting to Personas UI to enter new field (that was missing)\n")
   } catch (e){
     console.log(e)

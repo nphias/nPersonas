@@ -16,7 +16,7 @@ pub fn error<T>(reason: &str) -> ExternResult<T> {
     Err(HdkError::Wasm(WasmError::Zome(String::from(reason))))
 }
 
-entry_defs![Path::entry_def(), persona::Persona::entry_def()];//persona::PersonaProfile::entrydef()];
+entry_defs![Path::entry_def(), persona::Persona::entry_def(), persona::PersonaData::entry_def()];//persona::PersonaProfile::entrydef()];
 
 
 //temp hack for bridging
@@ -52,12 +52,12 @@ pub fn get_persona(_: ()) -> ExternResult<GetAgentProfileOutput> {
     Ok(GetAgentProfileOutput(agent_persona))
 }
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-pub struct GetAllFieldData(PersonaField);
+//#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+//pub struct GetAllFieldData(PersonaField);
 #[hdk_extern]
-pub fn add_field(fielddata: FieldData) -> ExternResult<GetAllFieldData> {
+pub fn add_field(fielddata: FieldData) -> ExternResult<PersonaField> {
     let result = persona::add_field(fielddata)?;
-    Ok(GetAllFieldData(result))
+    Ok(result)
 }
 
 

@@ -1,6 +1,6 @@
 use crate::utils;
 use hc_utils::WrappedAgentPubKey;
-//use hdk3::prelude::link::Link;
+use hdk3::prelude::link::Link;
 use hdk3::prelude::*;
 use std::convert::{TryFrom, TryInto};
 
@@ -18,7 +18,7 @@ pub struct PersonaData {
     fields: vec<PersonaField>
 }*/
 
-#[hdk_entry(id = "personaData", visibility = "private")]
+#[hdk_entry(id = "personadata", visibility = "private")]
 #[derive(Clone)]
 pub struct PersonaData {
 	aliases: Vec<String>,
@@ -32,7 +32,7 @@ pub struct PersonaField {
     persona_id: WrappedAgentPubKey,
     data_id: EntryHash,
     key: String,
-    value: Option<String>,
+    value: String,
     aliases: Vec<String>
 }
 
@@ -105,7 +105,7 @@ pub fn get_fields(fieldnames:FieldNames) -> ExternResult<Vec<PersonaField>> {
                 persona_id: WrappedAgentPubKey(pub_key.clone()),
                 data_id: pd_hash,
                 key: name,
-                value: Some(pd.data),
+                value: pd.data,
                 aliases: pd.aliases
             })
         }
@@ -122,7 +122,7 @@ pub fn add_field(field: FieldData) -> ExternResult<PersonaField> {
     let pub_key = agent_info()?.agent_latest_pubkey.clone();
     //let agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey); //wrapped_agent_pub_key.0.clone();
     //let agent_address: AnyDhtHash = pub_key.into();
-    let path = Path::from(format!("all_data.{}",&field.key)); 
+    let path = Path::from(format!("all_data.{}",field.key)); 
         path.ensure()?;
         let links = get_links(path.hash()?, None)?;//, tag_to_app_key(app.clone())?)?;
         let inner_links = links.into_inner();
@@ -134,7 +134,7 @@ pub fn add_field(field: FieldData) -> ExternResult<PersonaField> {
                 persona_id: WrappedAgentPubKey(pub_key.clone()),
                 data_id: pd_hash,
                 key: field.key.clone(),
-                value: Some(pd.data),
+                value: pd.data,
                 aliases: pd.aliases
             })
         } else {
@@ -142,20 +142,21 @@ pub fn add_field(field: FieldData) -> ExternResult<PersonaField> {
                 aliases: Vec::new(),
                 data: field.value.clone()
             };
-            create_entry(&newdata);
+            let header_hash = create_entry(&newdata)?;
             let newdata_hash = hash_entry(&newdata)?;
             create_link(
                 path.hash()?,
                 newdata_hash.clone(),
                 LinkTag("persona".into())
             )?;
-            Ok( PersonaField {
-                persona_id: WrappedAgentPubKey(pub_key.clone()),
-                data_id: newdata_hash.clone(),
-                key: field.key.clone(),
-                value: Some(newdata.data),
+            let result = PersonaField {
+                persona_id: WrappedAgentPubKey(pub_key),
+                data_id: newdata_hash,
+                key: field.key,
+                value: field.value,
                 aliases: newdata.aliases
-            })
+            };
+            Ok(result)
         }
 }
 
