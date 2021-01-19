@@ -53,55 +53,104 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
     uuid: app_UUID, //required
     appName: "calendar",
     appHash: "QmXpCHbuYVtQqpTaevX5y4Ed8Nnr7i4q6RFpMzNfs3W7ms", //required
-    appVersion: "3.1"
+    appVersion: "3.1",
+    fields: ['name', 'email']
   }
+
+  console.log(appInfo.fields)
   
- console.log("TEST1: get profile with app_info:",appInfo)
+ console.log("TEST1: get profile with app_info (app to zome call):",appInfo)
  try {
-  let profile = await alice_profiles[0].call(
-    "profiles",
-    "get_profile",
-    appInfo
-  );
-  t.notOk(false);
+    let profile = await alice_profiles[0].call(
+      "profiles",
+      "get_profile",
+      appInfo
+    );
+    console.log("app profile does not exist... redirecting to profiles")
+    t.notOk(profile);
+    console.log("\n")
   } catch (e){
     console.log(e)
   }
-  console.log("\n")
   await sleep(500);
+ 
 
-
-  console.log("TEST2: get persona data:")
+  console.log("TEST2: get persona data (called for each persona to present persona-chooser in profiles UI):")
   try {
-  let persona = await alice_profiles[0].call(
-    "personas",
-    "get_persona"
-  );
-  console.log(persona)
-  t.ok(persona);
+    let persona = await alice_profiles[0].call(
+      "personas",
+      "get_persona"
+    );
+    console.log(persona,"\n persona default chosen")
+    t.ok(persona);
+    console.log("\n")
   } catch (e){
     console.log(e)
   }
-  console.log("\n")
   await sleep(500);
   
 
-  // get fields -  returns type vector PersonaField
-  console.log("TEST3: get persona data with specified fields:")
-  let personaFields = await alice_profiles[0].call(
-    "personas",
-    "get_fields",
-    {
-    fields: ["name", "email"]
-    }
-  )
-  console.log(personaFields)
-  t.ok(personaFields)
-  console.log("\n")
+  // get fields -  returns type vector PersonaField - could go via profiles
+  console.log("TEST3: pre-populate form with existing fields and higlight missing:")
+  try {
+    let non_existing_Fields = await alice_profiles[0].call(
+      "personas",
+      "get_fields",      
+      { 
+        fields:appInfo.fields
+      }
+    )
+    console.log(non_existing_Fields)
+    t.ok(non_existing_Fields == [])
+    console.log("Redirecting to Personas UI to enter new field (that was missing)\n")
+  } catch (e){
+    console.log(e)
+  }
   await sleep(500);
 
+
+//returns personaField
+  console.log("TEST4: set persona data with missing fields:")
+  try{
+    let pFields = await alice_profiles[0].call(
+      "personas",
+      "add_field",
+      {
+        key:"email", value:"thomas@thomas.th"
+      }
+    )
+    console.log(pFields)
+    t.ok(pFields)
+    console.log("redirecting back to Profiles UI\n")
+  } catch (e){
+    console.log(e)
+  }
+  await sleep(500);
+
+
+  //repeat test 3 with data returned
+  // get fields -  - should go via profiles
+  console.log("TEST5: pre-populate form with existing fields and higlight missing:")
+  try {
+    let existing_Fields = await alice_profiles[0].call(
+      "personas",
+      "get_fields", //returns type vector PersonaField       
+      { 
+        fields:appInfo.fields
+      }
+    )
+    console.log(existing_Fields)
+    t.ok(existing_Fields)
+    console.log("Redirecting to Personas UI to enter new field (that was missing)\n")
+  } catch (e){
+    console.log(e)
+  }
+  await sleep(500);
+
+
+  //return to profiles UI
   //save complete profile - uses profileSpec, returns a hash
-  console.log("TEST4: save profile data:")
+  console.log("TEST6: save profile data:")
   let profileHash = await alice_profiles[0].call(
     "profiles",
     "create_profile",
@@ -118,15 +167,26 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
         description: "calendar profile name",
         access: "PERSONAL",
         schema: "",
+      },
+      {
+        name: "email",
+        displayName: "Email",
+        required: true,
+        description: "calendar profile email",
+        access: "PERSONAL",
+        schema: "",
       }],
     }
   );
-  console.log("result from creatiion hash: ",profileHash)
+  console.log("result from creation hash: ",profileHash)
   t.ok(profileHash);
   console.log("\n")
   await sleep(500);
 
-  console.log("TEST5: get profile data with appInfo:")
+
+
+  //repeat test1 to check that profile exists  
+  console.log("TEST7: get profile data with appInfo:")
   try {
     let profile = await alice_profiles[0].call(
       "profiles",
@@ -140,47 +200,12 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
     }
     await sleep(500);
 
-  //get profile for app
 
-  /*try {
-    profileHash = await bob_profiles.cells[0].call(
-      "profiles",
-      "create_profile",
-      {
-        username: "alice",
-        fields: {
-          avatar: "avatar",
-        },
-      }
-    );
-    t.ok(false);
-  } catch (e) {}
 
-  profileHash = await bob_profiles.cells[0].call("profiles", "create_profile", {
-    username: "bobbo",
-    fields: {
-      avatar: "bobboavatar",
-    },
-  });
-  t.ok(profileHash);
 
-  await sleep(10);
+  /*  IGNORE TESTING REFERENCE
 
-  myProfile = await alice_profiles.cells[0].call(
-    "profiles",
-    "get_my_profile",
-    null
-  );
-  t.ok(myProfile.agent_pub_key);
-  t.equal(myProfile.profile.username, "alice");
 
-  let profiles = await bob_profiles.cells[0].call(
-    "profiles",
-    "search_profiles",
-    {
-      username_prefix: "sdf",
-    }
-  );
   t.equal(profiles.length, 0);
 
   profiles = await bob_profiles.cells[0].call("profiles", "search_profiles", {

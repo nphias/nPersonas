@@ -1,6 +1,6 @@
 extern crate hc_utils;
 
-use hc_utils::WrappedDnaHash;
+//use hc_utils::WrappedDnaHash;
 use hc_utils::WrappedAgentPubKey;
 use hdk3::prelude::*;
 

@@ -195,6 +195,7 @@ pub fn get_profile(app_info: AppInfo) -> ExternResult<Option<ProfileData>> {
 //Helpers
 
 //DTO preparation
+/*
 fn get_name_fields(fields: &Vec<ProfileFieldSpec>) -> Vec<PersonaField> {
     return fields.iter().map(|f| {
         return PersonaField {
@@ -204,7 +205,7 @@ fn get_name_fields(fields: &Vec<ProfileFieldSpec>) -> Vec<PersonaField> {
             value: None
         }
     }).collect();  
-}
+}*/
 
 fn map_profile_spec_fields(mapped_fields: Vec<PersonaField>, field_data: Vec<ProfileFieldSpec> ) -> Vec<ProfileField> {
     return field_data.iter().map(|fd| {

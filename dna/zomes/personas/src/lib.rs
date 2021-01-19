@@ -8,7 +8,7 @@ mod persona;
 //mod persona_profile;
 mod utils;
 
-use persona::{AgentPersona, FieldNames, PersonaField};
+use persona::{AgentPersona, FieldNames, FieldData, PersonaField};
 //use persona_profile::{AgentPersonaProfile, PersonaProfile};
 
 
@@ -53,11 +53,20 @@ pub fn get_persona(_: ()) -> ExternResult<GetAgentProfileOutput> {
 }
 
 #[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-pub struct GetAllFieldData(Vec<PersonaField>);
+pub struct GetAllFieldData(PersonaField);
 #[hdk_extern]
-pub fn get_fields(fields: FieldNames) -> ExternResult<GetAllFieldData> {
-    let result = persona::get_fields(fields)?;
+pub fn add_field(fielddata: FieldData) -> ExternResult<GetAllFieldData> {
+    let result = persona::add_field(fielddata)?;
     Ok(GetAllFieldData(result))
+}
+
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct SerializedData(Vec<PersonaField>);
+#[hdk_extern]
+pub fn get_fields(fields: FieldNames) -> ExternResult<SerializedData> {
+    let result = persona::get_fields(fields)?;
+    Ok(SerializedData(result))
 }
 
 

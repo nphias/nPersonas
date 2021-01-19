@@ -41,6 +41,12 @@ pub struct FieldNames {
  pub fields: Vec<String> 
 }
 
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct FieldData {
+ pub key: String,
+ pub value: String
+}
+
 
 #[derive(Clone, Serialize, Deserialize, SerializedBytes)]
 pub struct AgentPersona {
@@ -79,56 +85,79 @@ pub fn get_persona(_:()) -> ExternResult<Option<AgentPersona>> {
 }
 
 //gets the default persona
-pub fn get_fields(fieldNames:FieldNames) -> ExternResult<Vec<PersonaField>> {
+pub fn get_fields(fieldnames:FieldNames) -> ExternResult<Vec<PersonaField>> {
 
     //first verify agent
     let pub_key = agent_info()?.agent_latest_pubkey.clone();
     //let agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey); //wrapped_agent_pub_key.0.clone();
     //let agent_address: AnyDhtHash = pub_key.into();
     let mut result:Vec<PersonaField> = Vec::new(); 
-    for name in fieldNames.fields { 
+    for name in fieldnames.fields { 
         let path = Path::from(format!("all_data.{}",name)); 
         path.ensure()?;
         let links = get_links(path.hash()?, None)?;//, tag_to_app_key(app.clone())?)?;
         let inner_links = links.into_inner();
-        if inner_links.len() == 0 {
-            return Ok(result);
+        if inner_links.len() > 0 {
+            let link = inner_links[0].clone();
+            let pd: PersonaData = utils::try_get_and_convert(link.target)?;
+            let pd_hash = hash_entry(&pd.clone())?;
+            result.push( PersonaField {
+                persona_id: WrappedAgentPubKey(pub_key.clone()),
+                data_id: pd_hash,
+                key: name,
+                value: Some(pd.data),
+                aliases: pd.aliases
+            })
         }
-        let link = inner_links[0].clone();
-        let pd: PersonaData = utils::try_get_and_convert(link.target)?;
-        let pd_hash = hash_entry(&pd.clone())?;
-        result.push( PersonaField {
-            persona_id: WrappedAgentPubKey(pub_key.clone()),
-            data_id: pd_hash,
-            key: name,
-            value: Some(pd.data),
-            aliases: pd.aliases
-        })
     }
     Ok(result)
 
 }
 
 
-/*
-pub fn add_field(field: PersonaField) -> ExternResult<Entryhash> {
-    let newfield = PersonaField { 
-        name: field.name,
-        data: field.data
-    };
-    create_entry!(newfield.clone())?;
-    let agent_info = agent_info!()?;
-    let newfield_hash = hash_entry!(newfield.clone())?;
-    let agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey.clone());
-    let agent_address: AnyDhtHash = agent_info.agent_initial_pubkey.clone().into();
 
+pub fn add_field(field: FieldData) -> ExternResult<PersonaField> {
 
-    create_link!(
-        agent_address.into(),
-        persona_hash.clone(),
-        link_tag("persona")?
-    )?;
-}*/
+    //first verify agent
+    let pub_key = agent_info()?.agent_latest_pubkey.clone();
+    //let agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey); //wrapped_agent_pub_key.0.clone();
+    //let agent_address: AnyDhtHash = pub_key.into();
+    let path = Path::from(format!("all_data.{}",&field.key)); 
+        path.ensure()?;
+        let links = get_links(path.hash()?, None)?;//, tag_to_app_key(app.clone())?)?;
+        let inner_links = links.into_inner();
+        if inner_links.len() > 0 {
+            let link = inner_links[0].clone();
+            let pd: PersonaData = utils::try_get_and_convert(link.target)?;
+            let pd_hash = hash_entry(&pd.clone())?;
+            Ok(PersonaField {
+                persona_id: WrappedAgentPubKey(pub_key.clone()),
+                data_id: pd_hash,
+                key: field.key.clone(),
+                value: Some(pd.data),
+                aliases: pd.aliases
+            })
+        } else {
+            let newdata = PersonaData { 
+                aliases: Vec::new(),
+                data: field.value.clone()
+            };
+            create_entry(&newdata);
+            let newdata_hash = hash_entry(&newdata)?;
+            create_link(
+                path.hash()?,
+                newdata_hash.clone(),
+                LinkTag("persona".into())
+            )?;
+            Ok( PersonaField {
+                persona_id: WrappedAgentPubKey(pub_key.clone()),
+                data_id: newdata_hash.clone(),
+                key: field.key.clone(),
+                value: Some(newdata.data),
+                aliases: newdata.aliases
+            })
+        }
+}
 
 
 /* 
