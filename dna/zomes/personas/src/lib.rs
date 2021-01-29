@@ -65,8 +65,32 @@ pub fn add_field(fielddata: FieldData) -> ExternResult<PersonaField> {
 pub struct SerializedData(Vec<PersonaField>);
 #[hdk_extern]
 pub fn get_fields(fields: FieldNames) -> ExternResult<SerializedData> {
-    let result = persona::get_fields(fields)?;
+    let result = persona::get_fields_imp(fields)?;
     Ok(SerializedData(result))
+}
+
+
+
+#[derive(Deserialize, Serialize, SerializedBytes, Clone, Debug)]
+pub struct UsernameWrapper(pub String);
+
+#[hdk_extern]
+pub fn get_agent_pubkey_from_username(_username_input: UsernameWrapper) -> ExternResult<AgentPubKey> {
+    let agent_info = agent_info()?;
+    Ok(agent_info.agent_initial_pubkey)  
+    //panic!("Unable to make interzome call: {:?}", agent_info.agent_initial_pubkey);
+    
+    /* //get entry by its entry hash instead of links
+    let username_entry = UsernameEntry { username: username_input.0 };
+    let username_hash = hash_entry(&username_entry)?;
+    let option = GetOptions::latest();
+    match get(username_hash, option)? {
+        Some(el) => {
+            let header_details = el.header();
+            Ok(header_details.author().to_owned())
+        },
+        None => crate::error("The username does not exist")
+    } */
 }
 
 

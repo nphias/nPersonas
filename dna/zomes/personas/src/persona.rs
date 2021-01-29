@@ -1,8 +1,8 @@
 use crate::utils;
 use hc_utils::WrappedAgentPubKey;
-use hdk3::prelude::link::Link;
+//use hdk3::prelude::link::Link;
 use hdk3::prelude::*;
-use std::convert::{TryFrom, TryInto};
+use std::convert::{TryFrom};//, TryInto};
 
 #[hdk_entry(id = "persona", visibility = "private")]
 #[derive(Clone)]
@@ -85,7 +85,7 @@ pub fn get_persona(_:()) -> ExternResult<Option<AgentPersona>> {
 }
 
 //gets the default persona
-pub fn get_fields(fieldnames:FieldNames) -> ExternResult<Vec<PersonaField>> {
+pub fn get_fields_imp(fieldnames:FieldNames) -> ExternResult<Vec<PersonaField>> {
 
     //first verify agent
     let pub_key = agent_info()?.agent_latest_pubkey.clone();
@@ -142,7 +142,7 @@ pub fn add_field(field: FieldData) -> ExternResult<PersonaField> {
                 aliases: Vec::new(),
                 data: field.value.clone()
             };
-            let header_hash = create_entry(&newdata)?;
+            let _header_hash = create_entry(&newdata)?;
             let newdata_hash = hash_entry(&newdata)?;
             create_link(
                 path.hash()?,
@@ -229,10 +229,10 @@ fn create_persona() -> ExternResult<AgentPersona> {
         name: "default".into(),
         agent_pub_key: pub_key
     };
-    create_entry(&persona.clone());
+    let _ent = create_entry(&persona.clone());
     let persona_hash = hash_entry(&persona.clone());
     let path = Path::from("owner");
-    path.ensure();
+    path.ensure()?;
     create_link(
         path.hash()?,
         persona_hash.clone()?,

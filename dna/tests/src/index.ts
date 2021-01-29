@@ -13,9 +13,10 @@ const network = {
     {
       type: TransportConfigType.Quic,
     },
-  ],
-  bootstrap_service: "https://bootstrap.holo.host",
+  ]
 };
+
+//bootstrap_service: "https://bootstrap.holo.host",
 const conductorConfig = Config.gen({ network });
 
 // Construct proper paths for your DNAs
@@ -42,9 +43,9 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
   // install your happs into the coductors and destructuring the returned happ data using the same
   // array structure as you created in your installation array.
   const [[alice_test]] = await alice.installAgentsHapps(installation);
-  console.log(alice_test)
+  //console.log(alice_test)
   const alice_profiles = await alice_test.cells
-  console.log(alice_profiles)
+  //console.log(alice_profiles)
   //console.log(alice_profiles[0])
 
 
@@ -55,11 +56,32 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
     appName: "calendar",
     appHash: "QmXpCHbuYVtQqpTaevX5y4Ed8Nnr7i4q6RFpMzNfs3W7ms", //required
     appVersion: "3.1",
-    fields: ['name', 'email']
+    expiry: 0,
+    fields: [{
+      name: "username",
+      displayName: "Username",
+      required: true,
+      description: "calendar profile name",
+      access: "PUBLIC",
+      schema: "{'context':'profile'}",  //this should be a BTREEMAP not a string on rust side
+    },
+    {
+      name: "email",
+      displayName: "Email",
+      required: true,
+      description: "calendar profile email",
+      access: "PERSONAL",
+      schema: "{'schematype':'profile'}",
+    }]
+    //fields: ['name', 'email']
   }
-
-  console.log(appInfo.fields)
-  
+  const field_set:string[] = appInfo.fields.map(f=>{ return f.name})
+ // console.log("Test data:")
+ // console.log("--------------------------------------------------------")
+ // console.log("fields: ",field_set)
+ // console.log("appInfo: ",appInfo.fields)
+ // console.log("--------------------------------------------------------")
+ 
  console.log("TEST1: get profile with app_info (app to zome call):",appInfo)
  try {
     let profile = await alice_profiles[0].call(
@@ -67,14 +89,13 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
       "get_profile",
       appInfo
     );
-    console.log("app profile does not exist... redirecting to profiles")
+    console.log("app profile does not exist... redirecting to personas")
     t.notOk(profile);
     console.log("\n")
   } catch (e){
     console.log(e)
   }
  
-
   console.log("TEST2: get persona data (called for each persona to present persona-chooser in profiles UI):")
   try {
     let persona = await alice_profiles[0].call(
@@ -96,7 +117,7 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
       "personas",
       "get_fields",      
       { 
-        fields:appInfo.fields
+        fields:field_set
       }
     )
     console.log(non_existing_Fields)
@@ -107,7 +128,7 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
   }
 
 //returns personaField
-  console.log("TEST4: set persona data with missing fields:")
+  console.log("TEST4: set persona data with first missing field:")
   try{
     let pFields = await alice_profiles[0].call(
       "personas",
@@ -123,17 +144,35 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
     console.log(e)
     exit()
   }
+  //await sleep(500);
+
+  console.log("TEST5: set persona data with second missing field, no pause:")
+  try{
+    let pFields = await alice_profiles[0].call(
+      "personas",
+      "add_field",
+      {
+        key:"username", value:"thomascal"
+      }
+    )
+    console.log(pFields)
+    t.ok(pFields)
+    console.log("redirecting back to Profiles UI\n")
+  } catch (e){
+    console.log(e)
+    exit()
+  }
   await sleep(500);
 
-
-  // get fields -  - should go via profiles
-  console.log("TEST5: confirm all fields are stored:")
+  
+  // get fields -  - skipping - go to test 7
+  /*console.log("TEST6: confirm all fields are stored:")
   try {
     let existing_Fields = await alice_profiles[0].call(
       "personas",
       "get_fields", //returns type vector PersonaField       
       { 
-        fields:appInfo.fields
+        fields:field_set
       }
     )
     console.log(existing_Fields)
@@ -143,7 +182,7 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
     console.log(e)
   }
   await sleep(500);
-
+*/
 
   //return to profiles UI
   //save complete profile - uses profileSpec, returns a hash
@@ -151,51 +190,30 @@ orchestrator.registerScenario("try to retieve a profile that doesnt exist, get f
   let profileHash = await alice_profiles[0].call(
     "profiles",
     "create_profile",
-    {
-      uuid: app_UUID, //required
-      appName: "calendar",
-      appHash: "QmXpCHbuYVtQqpTaevX5y4Ed8Nnr7i4q6RFpMzNfs3W7ms", //required
-      appVersion: "3.1",
-      expiry: 23,
-      fields: [{
-        name: "name",
-        displayName: "Name",
-        required: true,
-        description: "calendar profile name",
-        access: "PERSONAL",
-        schema: "",
-      },
-      {
-        name: "email",
-        displayName: "Email",
-        required: true,
-        description: "calendar profile email",
-        access: "PERSONAL",
-        schema: "",
-      }],
-    }
+    appInfo
   );
   console.log("result from creation hash: ",profileHash)
   t.ok(profileHash);
   console.log("\n")
+  //await sleep(500);
+
+
+
+ //repeat test1 to check that profile exists  
+console.log("TEST7: get profile data with values included (interzome personas) :")
+try {
+  let profile = await alice_profiles[0].call(
+    "profiles",
+    "get_profile",
+    appInfo
+  );
+  console.log(profile)
+  t.ok(profile);
+  } catch (e){
+    console.log(e)
+  }
   await sleep(500);
 
-
-
-  //repeat test1 to check that profile exists  
-  console.log("TEST7: get profile data with appInfo:")
-  try {
-    let profile = await alice_profiles[0].call(
-      "profiles",
-      "get_profile",
-      appInfo
-    );
-    console.log(profile)
-    t.ok(profile);
-    } catch (e){
-      console.log(e)
-    }
-    await sleep(500);
 
 
 

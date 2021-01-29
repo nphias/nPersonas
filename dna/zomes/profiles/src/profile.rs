@@ -1,5 +1,5 @@
 use crate::utils;
-//use hc_utils::wrappers::*;
+use hc_utils::wrappers::*;
 //use hdk3::prelude::link::Link;
 use hdk3::prelude::*;
 use std::convert::{TryFrom, TryInto};
@@ -111,27 +111,48 @@ pub struct ProfileFieldData {
     pub value: Option<String>
 }
 
-//#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-//pub struct FieldMapping {
-//    persona: AnyDhtHash,
-//    persona_field: AnyDhtHash
-//}
-
 //DTO to get data from the persona zome
 #[derive(Clone, Serialize, Deserialize, SerializedBytes)]
 pub struct PersonaField {
-    persona_id: Option<AnyDhtHash>,
-    field_id: Option<AnyDhtHash>,
-    name: String,
-    value: Option<String>
+    persona_id: WrappedAgentPubKey,
+    data_id: EntryHash,
+    key: String,
+    value: String,
+    aliases: Vec<String>
+}
+
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct SerializedDataResponse(Vec<PersonaField>);
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct SerializedData(Vec<String>);
+
+#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+pub struct FieldNames {
+ pub fields: Vec<String> 
 }
 
 
 pub fn create_profile(spec: ProfileSpec) -> ExternResult<EntryHash> {
-    //let search_fields = get_name_fields(&profileInit.fields.clone());
-    //let mapped_fields = get_persona_fields(search_fields);   //here we call personas and get back vec<PersonaField>
-    let pf = PersonaField {persona_id: None, field_id: None, name:"name".into(), value: Some(String::from("Thomas"))};
-    let mapped_fields = vec![pf];
+   let search_fields = get_field_names(&spec.fields);
+   let _mapped_fields = get_data_for_fields(search_fields)?;   //here we call personas and get back vec<PersonaField>
+   let mapped_fields = _mapped_fields.0;
+   //if mapped_fields.len() == 0 {
+    //panic!("no fields found");
+   //}
+
+  // mapped_fields.iter().map(|mf| {
+    //if !search_fields.iter().any(|sf |sf.as_str() == mf.key){
+     //   return Err("field missing:".to_owned()+&mf.key);
+   // }
+   //});
+//}).collect();
+   
+    //let spec_hash = hash_entry(&spec.clone())?;
+    //let pub_key = agent_info()?.agent_initial_pubkey;
+    //let pf = PersonaField {persona_id: WrappedAgentPubKey(pub_key), data_id: spec_hash, key:"name".into(), value: String::from("Thomas"), aliases: Vec::new()};
+    //let mapped_fields = vec![pf];
     let profile = Profile {
         uuid: spec.uuid,
         app_name: spec.app_name,
@@ -157,13 +178,15 @@ pub fn create_profile(spec: ProfileSpec) -> ExternResult<EntryHash> {
 }
 
 //one profile per persona, per app version
-pub fn get_profile(app_info: AppInfo) -> ExternResult<Option<ProfileData>> {
-    //check if profile exists.
-    let mapped_fields = Vec::new();
-
-    //let app_key = wrapped_app_dna.0.clone().to_string();//.0.clone();
+pub fn get_profile(app_info: ProfileSpec) -> ExternResult<Option<ProfileData>> {
+    
+    //check if profile exists
     let path = Path::from(format!("all_applications.{}",app_info.uuid.as_str()));
-    path.ensure()?;
+    let path_result = path.ensure();
+        match path_result {
+            Err(e)=>{panic!("Unable to make path: {:?}", e)}
+            Ok(_)=>{}
+        }
     //let app_address: AnyDhtHash = app_key.into_hash(); 
     let links = get_links(path.hash()?,Some(link_tag(&app_info.app_hash.as_str())?))?;//, tag_to_app_key(app.clone())?)?;
     let inner_links = links.into_inner();
@@ -173,10 +196,16 @@ pub fn get_profile(app_info: AppInfo) -> ExternResult<Option<ProfileData>> {
     }
     let link = inner_links[0].clone();
 
+    //check if profile field data exists.
+    let search_fields = get_field_names(&app_info.fields);
+    //let mapped_fields = Vec::new();
+    let _mapped_fields = get_data_for_fields(search_fields)?;
+    let mapped_fields = _mapped_fields.0;
+
     let profile: Profile = utils::try_get_and_convert(link.target)?;
     let profile_hash = hash_entry(&profile.clone())?;
 
-    let profile = ProfileData {
+    let profiledata = ProfileData {
         id: profile_hash,
         uuid: profile.uuid,
         app_name: profile.app_name,
@@ -186,7 +215,7 @@ pub fn get_profile(app_info: AppInfo) -> ExternResult<Option<ProfileData>> {
         enabled: profile.enabled,
         fields: map_to_output_fields(mapped_fields, profile.fields)
     };
-    Ok(Some(profile))
+    Ok(Some(profiledata))
 
 }
 
@@ -194,6 +223,19 @@ pub fn get_profile(app_info: AppInfo) -> ExternResult<Option<ProfileData>> {
 
 //Helpers
 
+/*pub fn try_from<T: TryFrom<SerializedBytes>>(data: SerializedDataResponse) -> ExternResult<T> {
+    match T::try_from(data.into_sb()) {
+            Ok(e) => Ok(e),
+            Err(_) => crate::error("Could not convert entry"),
+        },
+        _ => crate::error("Could not convert entry"),
+}*/
+
+fn get_field_names(fields: &Vec<ProfileFieldSpec>) -> Vec<String> {
+    return fields.iter().map(|f| {
+        return f.name.clone()
+    }).collect(); 
+}
 //DTO preparation
 /*
 fn get_name_fields(fields: &Vec<ProfileFieldSpec>) -> Vec<PersonaField> {
@@ -205,7 +247,55 @@ fn get_name_fields(fields: &Vec<ProfileFieldSpec>) -> Vec<PersonaField> {
             value: None
         }
     }).collect();  
+    //    let function_name = zome::FunctionName("get_fields".to_owned());
+
+    //let payload: Vec<String> = vec!["name".into(),"email".into()];
+  //  let payload = String::from("hi");
+
+  /*let function_name = zome::FunctionName("get_agent_pubkey_from_username".to_owned());
+    // needs to handle error from get_agent_pubkey_from_username in UI
+    let agent_pubkey = hdk3::prelude::call(
+        None,
+        "personas".into(),
+        function_name,
+        None,
+        &username
+    );
+    match agent_pubkey
+    {
+        Err(e) => {
+           // println!("Unable to make interzome call: {:?}", e);
+            panic!("Unable to make interzome call: {:?}", e);
+        }
+        Ok(_) => {agent_pubkey?}
+    }*/
 }*/
+
+pub fn get_data_for_fields(fields: Vec<String>) -> ExternResult<SerializedDataResponse> {
+    debug!("hello world1 {:?}",&fields);
+    let data = FieldNames{fields:fields.into()};
+    let function_name = zome::FunctionName("get_fields".to_owned());
+    // needs to handle error from get_agent_pubkey_from_username in UI
+   
+    let result = hdk3::prelude::call(
+        None,
+        "personas".into(),
+        function_name,
+        None,
+        &data
+    );
+    debug!("hello world7");
+    match result
+    {
+        Err(e) => {
+           // println!("Unable to make interzome call: {:?}", e);
+            panic!("Unable to make interzome call: {:?}", e);
+        }
+        Ok(_) => {Ok(result?)}
+    }
+   // Ok(agent_pubkey)
+}
+
 
 fn map_profile_spec_fields(mapped_fields: Vec<PersonaField>, field_data: Vec<ProfileFieldSpec> ) -> Vec<ProfileField> {
     return field_data.iter().map(|fd| {
@@ -225,8 +315,8 @@ fn get_mapping_data_in(name:String, mapped_fields:Vec<PersonaField>) -> Option<S
     //return AnyDhtHash::from_raw_36_and_type(
      //   b"000000000000000000000000000000000000".to_vec(),
      //   hash_type::AnyDht::Header,
-    return mapped_fields.iter().filter(|mf| mf.name == name).map(|r| {
-        return r.value.clone();
+    return mapped_fields.iter().filter(|mf| mf.key == name).map(|r| {
+        return Some(r.value.clone());
     }).collect();
 }
 
@@ -245,10 +335,12 @@ fn map_to_output_fields(mapped_fields: Vec<PersonaField>, field_data: Vec<Profil
 }
 
 fn get_mapping_data_out(name:String, mapped_fields:Vec<PersonaField>) -> Option<String> {
-    return mapped_fields.iter().filter(|mf| mf.name == name).map(|r| {
-        return r.value.clone()
+    return mapped_fields.iter().filter(|mf| mf.key == name).map(|r| {
+        return Some(r.value.clone())
     }).collect();
 }
+
+/// let foo: Foo = call(None, "foo_zome", "do_it", None, serialized_payload)?;
 
 /*pub fn get_persona_names() -> Vec<String> {
     let function_name = zome::FunctionName("get_links_from_foo".to_owned());
