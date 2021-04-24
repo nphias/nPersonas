@@ -1,8 +1,9 @@
-extern crate hc_utils;
-
-use hc_utils::WrappedAgentPubKey;
+//extern crate hc_utils;
+use holo_hash::AgentPubKeyB64;
+//use holo_hash::DnaHash;
+//use hc_utils::WrappedAgentPubKey;
 //use hc_utils::WrappedDnaHash;
-use hdk3::prelude::*;
+use hdk::prelude::*;
 
 mod persona;
 //mod persona_profile;
@@ -12,8 +13,8 @@ use persona::{AgentPersona, FieldNames, FieldData, PersonaField};
 //use persona_profile::{AgentPersonaProfile, PersonaProfile};
 
 
-pub fn error<T>(reason: &str) -> ExternResult<T> {
-    Err(HdkError::Wasm(WasmError::Zome(String::from(reason))))
+pub fn err(reason: &str) -> WasmError {
+    WasmError::Guest(String::from(reason))
 }
 
 entry_defs![Path::entry_def(), persona::Persona::entry_def(), persona::PersonaData::entry_def()];//persona::PersonaProfile::entrydef()];
@@ -39,21 +40,18 @@ fn init(_: ()) -> ExternResult<InitCallbackResult> {
 
 
 #[hdk_extern]
-pub fn who_am_i(_: ()) -> ExternResult<WrappedAgentPubKey> {
+pub fn who_am_i(_: ()) -> ExternResult<AgentPubKeyB64> {
     let agent_info = agent_info()?;
-    Ok(WrappedAgentPubKey(agent_info.agent_initial_pubkey))    
+    Ok(AgentPubKeyB64::from(agent_info.agent_initial_pubkey))    
 }
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-pub struct GetAgentProfileOutput(Option<AgentPersona>);
+
 #[hdk_extern]
-pub fn get_persona(_: ()) -> ExternResult<GetAgentProfileOutput> {
+pub fn get_persona(_: ()) -> ExternResult<Option<AgentPersona>> {
     let agent_persona = persona::get_persona(())?;
-    Ok(GetAgentProfileOutput(agent_persona))
+    Ok(agent_persona)
 }
 
-//#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-//pub struct GetAllFieldData(PersonaField);
 #[hdk_extern]
 pub fn add_field(fielddata: FieldData) -> ExternResult<PersonaField> {
     let result = persona::add_field(fielddata)?;
@@ -61,18 +59,16 @@ pub fn add_field(fielddata: FieldData) -> ExternResult<PersonaField> {
 }
 
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-pub struct SerializedData(Vec<PersonaField>);
 #[hdk_extern]
-pub fn get_fields(fields: FieldNames) -> ExternResult<SerializedData> {
+pub fn get_fields(fields: FieldNames) -> ExternResult<Vec<PersonaField>> {
     let result = persona::get_fields_imp(fields)?;
-    Ok(SerializedData(result))
+    Ok(result)
 }
 
 
 
 #[derive(Deserialize, Serialize, SerializedBytes, Clone, Debug)]
-pub struct UsernameWrapper(pub String);
+pub struct UsernameWrapper(pub String); //dont think this is needed
 
 #[hdk_extern]
 pub fn get_agent_pubkey_from_username(_username_input: UsernameWrapper) -> ExternResult<AgentPubKey> {
@@ -152,7 +148,7 @@ pub fn create_persona(_: ()) -> ExternResult<AgentPersona> {
 /* 
 
 #[hdk_extern]
-pub fn get_agent_profile(agent_pub_key: WrappedAgentPubKey) -> ExternResult<GetAgentProfileOutput> {
+pub fn get_agent_profile(agent_pub_key: AgentPubKeyB64) -> ExternResult<GetAgentProfileOutput> {
     let agent_profile = profile::get_agent_profile(agent_pub_key)?;
 
     Ok(GetAgentProfileOutput(agent_profile))

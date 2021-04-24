@@ -1,7 +1,7 @@
 use crate::utils;
-use hc_utils::WrappedAgentPubKey;
 //use hdk3::prelude::link::Link;
-use hdk3::prelude::*;
+use holo_hash::AgentPubKeyB64;
+use hdk::prelude::*;
 use std::convert::{TryFrom};//, TryInto};
 
 #[hdk_entry(id = "persona", visibility = "private")]
@@ -27,31 +27,31 @@ pub struct PersonaData {
 
 //DTOs
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct PersonaField {
-    persona_id: WrappedAgentPubKey,
+    persona_id: AgentPubKeyB64,
     data_id: EntryHash,
     key: String,
     value: String,
     aliases: Vec<String>
 }
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct FieldNames {
  pub fields: Vec<String> 
 }
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct FieldData {
  pub key: String,
  pub value: String
 }
 
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct AgentPersona {
     pub name: String,
-    pub agent_pub_key: WrappedAgentPubKey,
+    pub agent_pub_key: AgentPubKeyB64,
 }
 
 /** functions **/
@@ -79,7 +79,7 @@ pub fn get_persona(_:()) -> ExternResult<Option<AgentPersona>> {
     }
     let agent_persona = AgentPersona {
         name: persona.name,
-        agent_pub_key: WrappedAgentPubKey(pub_key)
+        agent_pub_key: AgentPubKeyB64::from(pub_key)
     };
     Ok(Some(agent_persona))
 }
@@ -89,8 +89,6 @@ pub fn get_fields_imp(fieldnames:FieldNames) -> ExternResult<Vec<PersonaField>> 
 
     //first verify agent
     let pub_key = agent_info()?.agent_latest_pubkey.clone();
-    //let agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey); //wrapped_agent_pub_key.0.clone();
-    //let agent_address: AnyDhtHash = pub_key.into();
     let mut result:Vec<PersonaField> = Vec::new(); 
     for name in fieldnames.fields { 
         let path = Path::from(format!("all_data.{}",name)); 
@@ -102,7 +100,7 @@ pub fn get_fields_imp(fieldnames:FieldNames) -> ExternResult<Vec<PersonaField>> 
             let pd: PersonaData = utils::try_get_and_convert(link.target)?;
             let pd_hash = hash_entry(&pd.clone())?;
             result.push( PersonaField {
-                persona_id: WrappedAgentPubKey(pub_key.clone()),
+                persona_id: AgentPubKeyB64::from(pub_key.clone()),
                 data_id: pd_hash,
                 key: name,
                 value: pd.data,
@@ -120,8 +118,6 @@ pub fn add_field(field: FieldData) -> ExternResult<PersonaField> {
 
     //first verify agent
     let pub_key = agent_info()?.agent_latest_pubkey.clone();
-    //let agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey); //wrapped_agent_pub_key.0.clone();
-    //let agent_address: AnyDhtHash = pub_key.into();
     let path = Path::from(format!("all_data.{}",field.key)); 
         path.ensure()?;
         let links = get_links(path.hash()?, None)?;//, tag_to_app_key(app.clone())?)?;
@@ -131,7 +127,7 @@ pub fn add_field(field: FieldData) -> ExternResult<PersonaField> {
             let pd: PersonaData = utils::try_get_and_convert(link.target)?;
             let pd_hash = hash_entry(&pd.clone())?;
             Ok(PersonaField {
-                persona_id: WrappedAgentPubKey(pub_key.clone()),
+                persona_id: AgentPubKeyB64::from(pub_key.clone()),
                 data_id: pd_hash,
                 key: field.key.clone(),
                 value: pd.data,
@@ -150,7 +146,7 @@ pub fn add_field(field: FieldData) -> ExternResult<PersonaField> {
                 LinkTag("persona".into())
             )?;
             let result = PersonaField {
-                persona_id: WrappedAgentPubKey(pub_key),
+                persona_id: AgentPubKeyB64::from(pub_key),
                 data_id: newdata_hash,
                 key: field.key,
                 value: field.value,
@@ -162,7 +158,7 @@ pub fn add_field(field: FieldData) -> ExternResult<PersonaField> {
 
 
 /* 
-pub fn get_persona_profile(app_hash:WrappedDnaHash, agent_pub_key: WrappedAgentPubKey) -> ExternResult<Option<AgentPersonaProfile>> {
+pub fn get_persona_profile(app_hash:WrappedDnaHash, agent_pub_key: AgentPubKeyB64) -> ExternResult<Option<AgentPersonaProfile>> {
     let path = Path::from(format!("all_personas.{}",agent_pub_key)); 
     path.ensure()?;
 
@@ -187,7 +183,7 @@ pub fn get_persona_profile(app_hash:WrappedDnaHash, agent_pub_key: WrappedAgentP
     path.ensure()?;
     //should take the active agent key
     let agent_info = agent_info!()?;
-    let agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey);
+    let agent_pub_key = AgentPubKeyB64(agent_info.agent_initial_pubkey);
     
     let links = get_links!(path.hash()?, pub_key_to_tag(agent_pub_key.clone())?)?;
     let inner_links = links.into_inner();
@@ -227,7 +223,7 @@ fn create_persona() -> ExternResult<AgentPersona> {
     let pub_key: AgentPubKey = agent_info()?.agent_initial_pubkey.clone().into();
     let persona = Persona { 
         name: "default".into(),
-        agent_pub_key: pub_key
+        agent_pub_key: pub_key.clone()
     };
     let _ent = create_entry(&persona.clone());
     let persona_hash = hash_entry(&persona.clone());
@@ -238,10 +234,10 @@ fn create_persona() -> ExternResult<AgentPersona> {
         persona_hash.clone()?,
         LinkTag("persona".into())
     )?;
-    let pub_key = agent_info()?.agent_initial_pubkey.clone().into();
+    //let pub_key = agent_info()?.agent_initial_pubkey.clone().into();
     let persona = AgentPersona {
         name: "default".into(),
-        agent_pub_key: WrappedAgentPubKey(pub_key)
+        agent_pub_key: AgentPubKeyB64::from(pub_key)
     };
     Ok(persona)
 }
@@ -284,16 +280,16 @@ fn get_agent_persona_from_link(link: Link) -> ExternResult<AgentPersona> {
     Ok(agent_profile)
 }
 
-fn pub_key_to_tag(agent_pub_key: WrappedAgentPubKey) -> ExternResult<LinkTag> {
+fn pub_key_to_tag(agent_pub_key: AgentPubKeyB64) -> ExternResult<LinkTag> {
     let sb: SerializedBytes = agent_pub_key.try_into()?;
 
     Ok(LinkTag(sb.bytes().clone()))
 }
 
-fn tag_to_pub_key(tag: LinkTag) -> ExternResult<WrappedAgentPubKey> {
+fn tag_to_pub_key(tag: LinkTag) -> ExternResult<AgentPubKeyB64> {
     let sb = SerializedBytes::from(UnsafeBytes::from(tag.0));
 
-    let pub_key = WrappedAgentPubKey::try_from(sb)?;
+    let pub_key = AgentPubKeyB64::try_from(sb)?;
 
     Ok(pub_key)
 }
@@ -331,7 +327,7 @@ pub fn create_profile(persona: Persona) -> ExternResult<AgentPersona> {
 
     path.ensure()?;
 
-    let wrapped_agent_pub_key = WrappedAgentPubKey(agent_info.agent_initial_pubkey.clone());
+    let wrapped_agent_pub_key = AgentPubKeyB64(agent_info.agent_initial_pubkey.clone());
 
     create_link!(
         path.hash()?,
@@ -340,7 +336,7 @@ pub fn create_profile(persona: Persona) -> ExternResult<AgentPersona> {
     )?;
 
     let agent_profile = AgentProfile {
-        agent_pub_key: WrappedAgentPubKey(agent_info.agent_initial_pubkey),
+        agent_pub_key: AgentPubKeyB64(agent_info.agent_initial_pubkey),
         profile
     };
 
@@ -360,7 +356,7 @@ pub fn get_all_profiles() -> ExternResult<Vec<AgentProfile>> {
         .collect()
 }
 
-pub fn get_agent_profile(agent_pub_key: WrappedAgentPubKey) -> ExternResult<Option<AgentProfile>> {
+pub fn get_agent_profile(agent_pub_key: AgentPubKeyB64) -> ExternResult<Option<AgentProfile>> {
     let path = all_profiles_path();
 
     let links = get_links!(path.hash()?, pub_key_to_tag(agent_pub_key.clone())?)?;
@@ -403,16 +399,16 @@ fn get_agent_profile_from_link(link: Link) -> ExternResult<AgentProfile> {
     Ok(agent_profile)
 }
 
-fn pub_key_to_tag(agent_pub_key: WrappedAgentPubKey) -> ExternResult<LinkTag> {
+fn pub_key_to_tag(agent_pub_key: AgentPubKeyB64) -> ExternResult<LinkTag> {
     let sb: SerializedBytes = agent_pub_key.try_into()?;
 
     Ok(LinkTag(sb.bytes().clone()))
 }
 
-fn tag_to_pub_key(tag: LinkTag) -> ExternResult<WrappedAgentPubKey> {
+fn tag_to_pub_key(tag: LinkTag) -> ExternResult<AgentPubKeyB64> {
     let sb = SerializedBytes::from(UnsafeBytes::from(tag.0));
 
-    let pub_key = WrappedAgentPubKey::try_from(sb)?;
+    let pub_key = AgentPubKeyB64::try_from(sb)?;
 
     Ok(pub_key)
 }

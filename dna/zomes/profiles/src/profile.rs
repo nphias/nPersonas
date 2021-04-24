@@ -1,12 +1,11 @@
-use crate::utils;
-use hc_utils::wrappers::*;
-//use hdk3::prelude::link::Link;
-use hdk3::prelude::*;
+use crate::{err, utils};
+use holo_hash::AgentPubKeyB64;
+use hdk::prelude::*;
 use std::convert::{TryFrom, TryInto};
 use std::str::FromStr;
 
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum AccessType {
     PUBLIC,
     PERSONAL,
@@ -53,7 +52,7 @@ pub struct ProfileField {
 
 // DTO - Data Transfer Objects Input
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AppInfo {
     uuid: String,
@@ -62,7 +61,7 @@ pub struct AppInfo {
     app_version: String,
 }
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileSpec {
     uuid: String,
@@ -73,7 +72,7 @@ pub struct ProfileSpec {
     fields: Vec<ProfileFieldSpec>
 }
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileFieldSpec {
     pub name: String,
@@ -86,7 +85,7 @@ pub struct ProfileFieldSpec {
 
 // DTO - Data Transfer Objects Output
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileData {
     id: EntryHash,
@@ -99,7 +98,7 @@ pub struct ProfileData {
     fields: Vec<ProfileFieldData>
 }
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileFieldData {
     pub name: String,
@@ -112,47 +111,28 @@ pub struct ProfileFieldData {
 }
 
 //DTO to get data from the persona zome
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct PersonaField {
-    persona_id: WrappedAgentPubKey,
+    persona_id: AgentPubKeyB64,
     data_id: EntryHash,
     key: String,
     value: String,
     aliases: Vec<String>
 }
 
-
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-pub struct SerializedDataResponse(Vec<PersonaField>);
-
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-pub struct SerializedData(Vec<String>);
-
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct FieldNames {
- pub fields: Vec<String> 
+    pub fields: Vec<String> 
 }
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct SerializedDataResponse(Vec<PersonaField>);
 
 
 pub fn create_profile(spec: ProfileSpec) -> ExternResult<EntryHash> {
    let search_fields = get_field_names(&spec.fields);
-   let _mapped_fields = get_data_for_fields(search_fields)?;   //here we call personas and get back vec<PersonaField>
-   let mapped_fields = _mapped_fields.0;
-   //if mapped_fields.len() == 0 {
-    //panic!("no fields found");
-   //}
-
-  // mapped_fields.iter().map(|mf| {
-    //if !search_fields.iter().any(|sf |sf.as_str() == mf.key){
-     //   return Err("field missing:".to_owned()+&mf.key);
-   // }
-   //});
-//}).collect();
-   
-    //let spec_hash = hash_entry(&spec.clone())?;
-    //let pub_key = agent_info()?.agent_initial_pubkey;
-    //let pf = PersonaField {persona_id: WrappedAgentPubKey(pub_key), data_id: spec_hash, key:"name".into(), value: String::from("Thomas"), aliases: Vec::new()};
-    //let mapped_fields = vec![pf];
+   let mapped_fields = get_data_for_fields(search_fields)?;   //here we call personas and get back vec<PersonaField>
+  // let mapped_fields = _mapped_fields.0;
     let profile = Profile {
         uuid: spec.uuid,
         app_name: spec.app_name,
@@ -199,8 +179,8 @@ pub fn get_profile(app_info: ProfileSpec) -> ExternResult<Option<ProfileData>> {
     //check if profile field data exists.
     let search_fields = get_field_names(&app_info.fields);
     //let mapped_fields = Vec::new();
-    let _mapped_fields = get_data_for_fields(search_fields)?;
-    let mapped_fields = _mapped_fields.0;
+    let mapped_fields = get_data_for_fields(search_fields)?;
+    //let mapped_fields = _mapped_fields.0;
 
     let profile: Profile = utils::try_get_and_convert(link.target)?;
     let profile_hash = hash_entry(&profile.clone())?;
@@ -223,75 +203,38 @@ pub fn get_profile(app_info: ProfileSpec) -> ExternResult<Option<ProfileData>> {
 
 //Helpers
 
-/*pub fn try_from<T: TryFrom<SerializedBytes>>(data: SerializedDataResponse) -> ExternResult<T> {
-    match T::try_from(data.into_sb()) {
-            Ok(e) => Ok(e),
-            Err(_) => crate::error("Could not convert entry"),
-        },
-        _ => crate::error("Could not convert entry"),
-}*/
-
 fn get_field_names(fields: &Vec<ProfileFieldSpec>) -> Vec<String> {
     return fields.iter().map(|f| {
         return f.name.clone()
     }).collect(); 
 }
-//DTO preparation
-/*
-fn get_name_fields(fields: &Vec<ProfileFieldSpec>) -> Vec<PersonaField> {
-    return fields.iter().map(|f| {
-        return PersonaField {
-            persona_id: None,
-            field_id: None,
-            name: f.name.clone().into(),
-            value: None
-        }
-    }).collect();  
-    //    let function_name = zome::FunctionName("get_fields".to_owned());
 
-    //let payload: Vec<String> = vec!["name".into(),"email".into()];
-  //  let payload = String::from("hi");
-
-  /*let function_name = zome::FunctionName("get_agent_pubkey_from_username".to_owned());
-    // needs to handle error from get_agent_pubkey_from_username in UI
-    let agent_pubkey = hdk3::prelude::call(
-        None,
-        "personas".into(),
-        function_name,
-        None,
-        &username
-    );
-    match agent_pubkey
-    {
-        Err(e) => {
-           // println!("Unable to make interzome call: {:?}", e);
-            panic!("Unable to make interzome call: {:?}", e);
-        }
-        Ok(_) => {agent_pubkey?}
-    }*/
-}*/
-
-pub fn get_data_for_fields(fields: Vec<String>) -> ExternResult<SerializedDataResponse> {
-    debug!("hello world1 {:?}",&fields);
+#[hdk_extern]
+fn get_data_for_fields(fields: Vec<String>) -> ExternResult<Vec<PersonaField>> {
+    debug!("debug works {:?}",&fields);
     let data = FieldNames{fields:fields.into()};
     let function_name = zome::FunctionName("get_fields".to_owned());
     // needs to handle error from get_agent_pubkey_from_username in UI
    
-    let result = hdk3::prelude::call(
+    let result = hdk::prelude::call(
         None,
         "personas".into(),
         function_name,
         None,
         &data
     );
-    debug!("hello world7");
     match result
     {
+
         Err(e) => {
            // println!("Unable to make interzome call: {:?}", e);
             panic!("Unable to make interzome call: {:?}", e);
         }
-        Ok(_) => {Ok(result?)}
+        Ok(output) => { match output {
+            ZomeCallResponse::Ok(data) => {Ok(data.decode()?)}
+            ZomeCallResponse::Unauthorized(cell_id, _, _, _) => { Err(err(format!("this agent has no proper authorization: {}",cell_id).as_str()))}
+            ZomeCallResponse::NetworkError(net_err) => {Err(err(format!("Unable to make interzome call, network error: {}", net_err).as_str()))}
+        }}
     }
    // Ok(agent_pubkey)
 }
@@ -340,120 +283,8 @@ fn get_mapping_data_out(name:String, mapped_fields:Vec<PersonaField>) -> Option<
     }).collect();
 }
 
-/// let foo: Foo = call(None, "foo_zome", "do_it", None, serialized_payload)?;
 
-/*pub fn get_persona_names() -> Vec<String> {
-    let function_name = zome::FunctionName("get_links_from_foo".to_owned());
-    match call_remote!(
-        agent, 
-        "zomeone".into(),
-        function_name, 
-        None,
-        ().try_into()?
-    )? {
-        ZomeCallResponse::Ok(output) => {
-            let sb = output.into_inner();
-            let links: Links = sb.try_into()?;
-            Ok(links)
-        },
-        ZomeCallResponse::Unauthorized => {
-            Err(HdkError::Wasm(WasmError::Zome(
-                "this agent has no proper authorization".to_owned()
-            )))
-        },
-    }
-
-}
-
-
-
-
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-pub struct AgentProfile {
-    pub agent_pub_key: WrappedAgentPubKey,
-    pub profile: Profile,
-}
-pub fn get_all_profiles() -> ExternResult<Vec<AgentProfile>> {
-    let path = all_profiles_path();
-
-    let links = get_links(path.hash()?)?;
-
-    links
-        .into_inner()
-        .into_iter()
-        .map(|link| get_agent_profile_from_link(link))
-        .collect()
-}
-
-pub fn get_agent_profile(agent_pub_key: WrappedAgentPubKey) -> ExternResult<Option<AgentProfile>> {
-    let path = all_profiles_path();
-
-    let links = get_links(path.hash()?, pub_key_to_tag(agent_pub_key.clone())?)?;
-
-    let inner_links = links.into_inner();
-
-    if inner_links.len() == 0 {
-        return Ok(None);
-    }
-
-    let link = inner_links[0].clone();
-
-    let profile: Profile = utils::try_get_and_convert(link.target)?;
-
-    let agent_profile = AgentProfile {
-        agent_pub_key,
-        profile
-    };
-
-    Ok(Some(agent_profile))
-}
-
-/** Private helpers */
-
-fn all_profiles_path() -> Path {
-    Path::from("all_profiles")
-}
-
-fn get_agent_profile_from_link(link: Link) -> ExternResult<AgentProfile> {
-    let profile_hash = link.target;
-
-    let profile: Profile = utils::try_get_and_convert(profile_hash)?;
-    let agent_pub_key = tag_to_pub_key(link.tag)?;
-
-    let agent_profile = AgentProfile {
-        agent_pub_key,
-        profile,
-    };
-
-    Ok(agent_profile)
-}
-
-fn app_key_to_tag(app_key: WrappedDnaHash) -> ExternResult<LinkTag> {
-    let sb: SerializedBytes = app_key.try_into()?;
-    Ok(LinkTag(sb.bytes().clone()))
-}
-
-fn tag_to_app_key(tag: LinkTag) -> ExternResult<WrappedDnaHash> {
-    let sb = SerializedBytes::from(UnsafeBytes::from(tag.0));
-    let app_key = WrappedDnaHash::try_from(sb)?;
-    Ok(app_key)
-}
-
-fn pub_key_to_tag(agent_pub_key: WrappedAgentPubKey) -> ExternResult<LinkTag> {
-    let sb: SerializedBytes = agent_pub_key.try_into()?;
-
-    Ok(LinkTag(sb.bytes().clone()))
-}
-
-fn tag_to_pub_key(tag: LinkTag) -> ExternResult<WrappedAgentPubKey> {
-    let sb = SerializedBytes::from(UnsafeBytes::from(tag.0));
-
-    let pub_key = WrappedAgentPubKey::try_from(sb)?;
-
-    Ok(pub_key)
-}*/
-
-#[derive(Serialize, Deserialize, SerializedBytes)]
+#[derive(Serialize, Deserialize, Debug, SerializedBytes)]
 struct StringLinkTag(String);
 pub fn link_tag(tag: &str) -> ExternResult<LinkTag> {
     let sb: SerializedBytes = StringLinkTag(tag.into()).try_into()?;

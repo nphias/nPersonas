@@ -1,33 +1,32 @@
-extern crate hc_utils;
+//extern crate hc_utils;
 
 //use hc_utils::WrappedDnaHash;
-use hc_utils::WrappedAgentPubKey;
-use hdk3::prelude::*;
+use holo_hash::AgentPubKeyB64;
+
+use hdk::prelude::*;
 
 mod profile;
 mod utils;
 
 use profile::{ProfileData, ProfileSpec}; //Profile, ProfileField,
 
-pub fn error<T>(reason: &str) -> ExternResult<T> {
-    Err(HdkError::Wasm(WasmError::Zome(String::from(reason))))
+pub fn err(reason: &str) -> WasmError {
+    WasmError::Guest(String::from(reason))
 }
 
 entry_defs![Path::entry_def(), profile::Profile::entry_def(), profile::ProfileField::entry_def()];
 
 /** profile functions  **/
 #[hdk_extern]
-pub fn who_am_i(_: ()) -> ExternResult<WrappedAgentPubKey> {
+pub fn who_am_i(_: ()) -> ExternResult<AgentPubKeyB64> {
     let agent_info = agent_info()?;
-    Ok(WrappedAgentPubKey(agent_info.agent_initial_pubkey))    
+    Ok(AgentPubKeyB64::from(agent_info.agent_initial_pubkey))    
 }
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
-pub struct GetProfileOutput(Option<ProfileData>);
 #[hdk_extern]
-pub fn get_profile(meta: ProfileSpec) -> ExternResult<GetProfileOutput> {
+pub fn get_profile(meta: ProfileSpec) -> ExternResult<Option<ProfileData>> {
     let profile_output = profile::get_profile(meta)?;
-    Ok(GetProfileOutput(profile_output))
+    Ok(profile_output)
 }
  
 #[hdk_extern]
@@ -37,7 +36,7 @@ pub fn create_profile(profile: ProfileSpec) -> ExternResult<EntryHash> {
 
 
 
-/*#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+/*#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct GetPersonasOutput(Vec<String>);
 #[hdk_extern]
 pub fn get_personas(_: ()) -> ExternResult<GetPersonasOutput> {
@@ -52,7 +51,7 @@ pub fn get_personas(_: ()) -> ExternResult<GetPersonasOutput> {
 
 
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct GetAllProfilesOutput(Vec<AgentProfile>);
 #[hdk_extern]
 pub fn get_all_profiles(_: ()) -> ExternResult<GetAllProfilesOutput> {
@@ -61,10 +60,10 @@ pub fn get_all_profiles(_: ()) -> ExternResult<GetAllProfilesOutput> {
     Ok(GetAllProfilesOutput(agent_profiles))
 }
 
-#[derive(Clone, Serialize, Deserialize, SerializedBytes)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct GetAgentProfileOutput(Option<AgentProfile>);
 #[hdk_extern]
-pub fn get_agent_profile(agent_pub_key: WrappedAgentPubKey) -> ExternResult<GetAgentProfileOutput> {
+pub fn get_agent_profile(agent_pub_key: AgentPubKeyB64) -> ExternResult<GetAgentProfileOutput> {
     let agent_profile = profile::get_agent_profile(agent_pub_key)?;
 
     Ok(GetAgentProfileOutput(agent_profile))
@@ -75,7 +74,7 @@ pub fn get_my_profile(_: ()) -> ExternResult<GetAgentProfileOutput> {
     let agent_info = agent_info()?;
 
     let agent_profile =
-        profile::get_agent_profile(WrappedAgentPubKey(agent_info.agent_initial_pubkey))?;
+        profile::get_agent_profile(AgentPubKeyB64(agent_info.agent_initial_pubkey))?;
 
     Ok(GetAgentProfileOutput(agent_profile))
 }

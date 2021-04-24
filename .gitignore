@@ -4,6 +4,9 @@ dna_old/
 target/
 node_modules/
 dist/
+.cargo/
+/persona_profile.notused
+ui/
 
 # dependencies
 /node_modules

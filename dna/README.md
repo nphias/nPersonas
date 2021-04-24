@@ -1,40 +1,29 @@
-# Zome Developer Setup
+# Developer Setup
 
-This folder has an example DNA for the `profiles` zome. The actual code for the zome is in `zomes/profiles`.
+This folder has an example DNA for the todo_rename_zome zome. The actual code for the zome is in zomes/todo_rename_zome.
 
 To change the code, you can work either opening VSCode inside the root folder of the repo or in this folder, you should have rust intellisense either way.
 
-## Requirements
+All the instructions here assume you are running them inside the nix-shell at the root of the repository. For more info, see the developer setup.
 
-- Having run through [holochain RSM installation](https://github.com/holochain/holochain-dna-build-tutorial).
-- Run all the steps described in this README.md inside the `nix-shell` of the `holochain` core repository.
-- Have [`holochain-run-dna`](https://www.npmjs.com/package/@holochain-open-dev/holochain-run-dna) installed globally.
-
-## Building
-
+### Building
 ```bash
 CARGO_TARGET_DIR=target cargo build --release --target wasm32-unknown-unknown
-dna-util -c profiles.dna.workdir/
+hc dna pack workdir/dna
+hc app pack workdir/happ
 ```
+This should create a workdir/happ/sample.happ file.
 
-## Testing
-
+### Testing
 After having built the DNA:
-
 ```bash
 cd test
 npm install
 npm test
 ```
-
-## Running
-
+### Running
 After having built the DNA:
-
 ```bash
-holochain-run-dna profiles.dna.gz
+hc s generate workdir/happ/sample.happ --run=8888
+Now holochain will be listening at port 8888;
 ```
-
-Now `holochain` will be listening at port `8888`;
-
-Restart the command if it fails (flaky holochain start).
